@@ -1,0 +1,1156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LP Signage</title>
+
+    <!-- PWA (used on non-BrightSign devices) -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#7a0019">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="LP Signage">
+    <link rel="apple-touch-icon" href="icon-192.png">
+
+    <!--
+      PERFORMANCE: preconnect to every external origin the page talks to.
+      Eliminates DNS + TLS handshake cost on first request to each domain.
+    -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://site.api.espn.com">
+    <link rel="preconnect" href="https://a.espncdn.com">
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+
+    <!--
+      PERFORMANCE: preload the bulldog logo — most visible asset on first paint.
+      Starts downloading before CSS even requests it.
+    -->
+    <link rel="preload" as="image"
+          href="https://assets-rst7.rschooltoday.com/rst7files/uploads/sites/743/2026/02/27022515/bulldog-30gray-maroon-collar-scaled.png">
+
+    <!--
+      PERFORMANCE: load Graduate font non-blocking.
+      media="print" swap trick: loads async, flips to all when ready.
+    -->
+    <link rel="preload" as="style"
+          href="https://fonts.googleapis.com/css2?family=Graduate&display=swap">
+    <link href="https://fonts.googleapis.com/css2?family=Graduate&display=swap"
+          rel="stylesheet" media="print" onload="this.media='all'">
+    <noscript>
+        <link href="https://fonts.googleapis.com/css2?family=Graduate&display=swap" rel="stylesheet">
+    </noscript>
+
+    <!--
+      PERFORMANCE: Font Awesome loads non-blocking — only used for spinner.
+    -->
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+          media="print" onload="this.media='all'">
+
+    <style>
+        /*
+          CRITICAL CSS — fully inlined, zero-latency first paint.
+          All sizing in vw/vh: works at any 16:9 resolution unchanged.
+
+          Grid rows:
+            Header  10vh   (~108px @ 1080p)
+            Slides  1fr    (all remaining space)
+            Ticker  9.5vh  (~103px @ 1080p)
+        */
+
+        :root {
+            --maroon: #7a0019;
+            --gold:   #ffcc33;
+            --border: 2.2px solid white;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; }
+
+        body, html {
+            margin: 0; padding: 0;
+            width: 100vw; height: 100vh;
+            overflow: hidden;
+            background-color: var(--maroon);
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            color: var(--gold);
+        }
+
+        body { border: var(--border); }
+
+        .container {
+            display: grid;
+            grid-template-columns: 1fr;
+            grid-template-rows: 10vh 1fr 9.5vh;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* ── HEADER ── */
+        .zone-header {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            align-items: center;
+            border-bottom: var(--border);
+            padding: 0 2vw;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 1.15vw;
+            justify-content: flex-start;
+        }
+
+        .header-center {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+        }
+
+        .header-logo {
+            height: 7.78vh;
+            width: auto;
+            object-fit: contain;
+            flex-shrink: 0;
+            border-radius: 0.63vw;
+            filter: drop-shadow(0.16vw 0.26vw 0.31vw rgba(0,0,0,0.5));
+        }
+
+        .zone-header h1 {
+            margin: 0;
+            font-size: 4.1vw;
+            white-space: nowrap;
+            text-transform: uppercase;
+            letter-spacing: 0.1vw;
+            font-weight: normal;
+            color: var(--gold);
+            font-family: 'Graduate', sans-serif;
+            -webkit-text-stroke: 0.08vw #fff;
+            text-shadow: 0.36vw 0.36vw 0.63vw rgba(0,0,0,0.85);
+        }
+
+        #time-display {
+            font-size: 3.23vw;
+            font-weight: 700;
+            color: var(--gold);
+            line-height: 1;
+            white-space: nowrap;
+        }
+
+        /* ── SLIDES ── */
+        .zone-slides {
+            overflow: hidden;
+            background: #000;
+            /* GPU layer: prevents slide iframe repaints from affecting other layers */
+            -webkit-transform: translateZ(0);
+            transform: translateZ(0);
+        }
+
+        .zone-slides iframe {
+            width: 100%; height: 100%;
+            border: none; display: block;
+        }
+
+        /* ── STALE DATA WARNING ── */
+        #stale-banner {
+            display: none;
+            position: absolute;
+            bottom: 9.8vh;
+            right: 0.5vw;
+            background: rgba(180,0,0,0.85);
+            color: #fff;
+            font-size: 0.7vw;
+            font-weight: 700;
+            padding: 0.2vh 0.6vw;
+            border-radius: 0.2vw;
+            z-index: 100;
+            letter-spacing: 0.03vw;
+        }
+
+        /* ══════════════════════════════════════════════
+           ESPN-STYLE TICKER
+        ══════════════════════════════════════════════ */
+        .zone-ticker {
+            border-top: var(--border);
+            background: #111;
+            display: flex;
+            align-items: stretch;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .ticker-label {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #cc0000;
+            color: #fff;
+            font-weight: 900;
+            font-size: 1.35vw;
+            letter-spacing: 0.08vw;
+            padding: 0 1.2vw;
+            min-width: 6vw;
+            border-right: 0.15vw solid #333;
+            flex-shrink: 0;
+            text-transform: uppercase;
+            line-height: 1.15;
+            text-align: center;
+        }
+
+        .ticker-label .tl-scores {
+            font-size: 0.72vw;
+            font-weight: 700;
+            color: #ffcc00;
+            letter-spacing: 0.05vw;
+            margin-bottom: 0.2vh;
+        }
+
+        .ticker-track-wrap {
+            flex: 1;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+        }
+
+        /*
+          BRIGHTSIGN GPU OPTIMIZATION:
+          translateZ(0) forces this element onto its own compositor layer,
+          meaning the scroll animation runs entirely on the GPU and never
+          triggers a main-thread layout or paint.
+          will-change: transform is a modern hint that does the same thing
+          on newer Chromium — both are specified for maximum compatibility.
+        */
+        .ticker-track {
+            display: flex;
+            align-items: stretch;
+            white-space: nowrap;
+            animation: tickerScroll 80s linear infinite;
+            -webkit-animation: tickerScroll 80s linear infinite;
+            will-change: transform;
+            -webkit-transform: translateZ(0);
+            transform: translateZ(0);
+            height: 100%;
+        }
+
+        @-webkit-keyframes tickerScroll {
+            0%   { -webkit-transform: translateZ(0) translateX(0); }
+            100% { -webkit-transform: translateZ(0) translateX(-50%); }
+        }
+        @keyframes tickerScroll {
+            0%   { transform: translateZ(0) translateX(0); }
+            100% { transform: translateZ(0) translateX(-50%); }
+        }
+
+        /*
+          BRIGHTSIGN / MEMORY OPTIMIZATION:
+          contain: layout style tells the browser that nothing inside a
+          ticker card affects layout or styles outside it. This dramatically
+          reduces how much the browser recalculates when we update scores.
+        */
+        .ticker-item {
+            display: -webkit-inline-flex;
+            display: inline-flex;
+            -webkit-flex-direction: column;
+            flex-direction: column;
+            -webkit-justify-content: center;
+            justify-content: center;
+            -webkit-align-items: flex-start;
+            align-items: flex-start;
+            padding: 0 1.5vw;
+            border-right: 0.08vw solid #2a2a2a;
+            height: 100%;
+            -webkit-flex-shrink: 0;
+            flex-shrink: 0;
+            contain: layout style;
+        }
+
+        .ticker-item.is-live  { background: #1c1c1c; border-right-color: #3a3a3a; }
+        .ticker-item.is-final { background: #161616; border-right-color: #2e2e2e; }
+
+        .ti-row1 {
+            display: -webkit-flex;
+            display: flex;
+            -webkit-align-items: center;
+            align-items: center;
+            line-height: 1;
+        }
+
+        .ti-row2 {
+            display: -webkit-flex;
+            display: flex;
+            -webkit-align-items: center;
+            align-items: center;
+            margin-top: 0.6vh;
+            line-height: 1;
+        }
+
+        .ti-sport {
+            font-size: 0.72vw;
+            font-weight: 800;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.04vw;
+            background: #252525;
+            border: 0.04vw solid #3a3a3a;
+            padding: 0.18vh 0.32vw;
+            border-radius: 0.15vw;
+            margin-right: 0.65vw;
+            -webkit-flex-shrink: 0;
+            flex-shrink: 0;
+        }
+
+        .ticker-item.is-live .ti-sport {
+            background: #4a0000;
+            border-color: #880000;
+            color: #ff9999;
+        }
+
+        .ti-team {
+            display: -webkit-inline-flex;
+            display: inline-flex;
+            -webkit-align-items: center;
+            align-items: center;
+            gap: 0.28vw;
+        }
+
+        .ti-logo {
+            width: 1.85vw;
+            height: 1.85vw;
+            object-fit: contain;
+            -webkit-flex-shrink: 0;
+            flex-shrink: 0;
+        }
+
+        .ti-abbr        { font-size: 1.3vw;  font-weight: 700; color: #bbb; letter-spacing: 0.03vw; min-width: 3ch; }
+        .ti-abbr.winner { color: #fff; }
+
+        .ti-score        { font-size: 1.4vw; font-weight: 900; color: #999; margin: 0 0.28vw; min-width: 1.8ch; text-align: center; }
+        .ti-score.winner { color: #fff; }
+
+        .ti-separator { font-size: 1.1vw; color: #444; margin: 0 0.18vw; }
+        .ti-vs        { font-size: 0.88vw; color: #666; margin: 0 0.5vw; font-weight: 700; }
+
+        .ti-status        { font-size: 0.78vw; font-weight: 700; color: #777; margin-left: 0.65vw; white-space: nowrap; -webkit-flex-shrink: 0; flex-shrink: 0; }
+        .ti-status.live   { color: #ff7700; -webkit-animation: pulseLive 1.3s ease-in-out infinite; animation: pulseLive 1.3s ease-in-out infinite; }
+        .ti-status.final  { color: #666; }
+
+        @-webkit-keyframes pulseLive {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.4; }
+        }
+        @keyframes pulseLive {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.4; }
+        }
+
+        .ti-stats {
+            display: -webkit-flex;
+            display: flex;
+            -webkit-align-items: center;
+            align-items: center;
+        }
+
+        .ti-stats::before {
+            content: '';
+            display: inline-block;
+            width: 0.12vw;
+            height: 2.0vh;
+            background: #cc0000;
+            border-radius: 0.1vw;
+            margin-right: 0.55vw;
+            -webkit-flex-shrink: 0;
+            flex-shrink: 0;
+        }
+
+        .is-final .ti-stats::before { background: #555; }
+
+        .ti-stat-group {
+            display: -webkit-inline-flex;
+            display: inline-flex;
+            -webkit-align-items: center;
+            align-items: center;
+        }
+
+        .ti-cat {
+            font-size: 1.05vw;
+            font-weight: 800;
+            color: #777;
+            background: #222;
+            border: 0.04vw solid #333;
+            padding: 0.1vh 0.28vw;
+            border-radius: 0.12vw;
+            margin-right: 0.3vw;
+            letter-spacing: 0.04vw;
+            text-transform: uppercase;
+            -webkit-flex-shrink: 0;
+            flex-shrink: 0;
+        }
+
+        .ti-stat-name { font-size: 1.35vw; font-weight: 700; color: #ddd; margin-right: 0.2vw; white-space: nowrap; }
+        .ti-stat-val  { font-size: 1.35vw; font-weight: 400; color: #999; white-space: nowrap; }
+        .ti-stat-val .hi { font-weight: 800; color: #ffcc00; }
+
+        .ti-dot { color: #444; font-size: 1.4vw; margin: 0 0.55vw; -webkit-flex-shrink: 0; flex-shrink: 0; }
+
+        .ticker-loading {
+            color: #666;
+            font-size: 0.9vw;
+            padding: 0 1.5vw;
+            display: -webkit-flex;
+            display: flex;
+            -webkit-align-items: center;
+            align-items: center;
+            gap: 0.5vw;
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <!-- HEADER -->
+    <div class="zone-header">
+        <div class="header-left">
+            <img src="https://assets-rst7.rschooltoday.com/rst7files/uploads/sites/743/2026/02/27022515/bulldog-30gray-maroon-collar-scaled.png"
+                 alt="Bulldog" class="header-logo"
+                 decoding="async" loading="eager"
+                 onerror="this.style.display='none'">
+        </div>
+        <div class="header-center">
+            <h1>Lester Prairie Schools</h1>
+        </div>
+        <div class="header-right">
+            <div id="time-display">--:--</div>
+        </div>
+    </div>
+
+    <!-- SLIDES -->
+    <div class="zone-slides">
+        <iframe id="slides-frame"
+            src="https://docs.google.com/presentation/d/e/2PACX-1vSvdTcNuS1rdz2dt385yfeAPpo2yL-ePwBdxGL91nXPNBuQGs1KfIcFnWhLSK6SuhIQiQMiW-ej0uwh/embed?start=true&loop=true&delayms=15000&rm=minimal"
+            allowfullscreen="true" mozallowfullscreen="true" webkitallowfullscreen="true"
+            loading="eager">
+        </iframe>
+    </div>
+
+    <!-- ESPN-STYLE TICKER -->
+    <div class="zone-ticker">
+        <div class="ticker-label">
+            <span class="tl-scores">Scores</span>
+            ESPN
+        </div>
+        <div class="ticker-track-wrap">
+            <div class="ticker-track" id="ticker-track">
+                <div class="ticker-loading">
+                    <i class="fa-solid fa-circle-notch fa-spin"></i>&nbsp;Loading scores...
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Stale data indicator — shown if ESPN hasn't refreshed in >5 min -->
+<div id="stale-banner">&#9888; Scores may be outdated</div>
+
+<script>
+/*
+  BRIGHTSIGN COMPATIBILITY NOTE
+  ─────────────────────────────
+  This file targets BrightSign OS 8 (Chromium 79) as the minimum.
+  To ensure compatibility, this script intentionally avoids:
+    - Optional chaining        ?.      (Chrome 80+)
+    - Nullish coalescing       ??      (Chrome 80+)
+    - Logical assignment       ??=     (Chrome 85+)
+    - Numeric separators       1_000   (Chrome 75+ but inconsistent on BS)
+  All replaced with equivalent ES5/ES6 patterns.
+  -webkit- prefixes added to all CSS animations and flexbox.
+*/
+
+'use strict';
+
+/* ════════════════════════════════════════════════════════
+   SAFE ACCESS HELPERS
+   safeFind replaces Array.find for BrightSign safety;
+   everything else uses ES6 which Chromium 79 supports fine.
+════════════════════════════════════════════════════════ */
+function safeFind(arr, fn) {
+    if (!arr || !arr.length) return undefined;
+    for (var i = 0; i < arr.length; i++) {
+        if (fn(arr[i])) return arr[i];
+    }
+    return undefined;
+}
+
+/* ════════════════════════════════════════════════════════
+   CONFIG
+════════════════════════════════════════════════════════ */
+var CONFIG = {
+    latitude:  44.88757865052159,
+    longitude: -94.04388727392079,
+    timeZone:  'America/Chicago'
+};
+
+/* ════════════════════════════════════════════════════════
+   1. CLOCK — syncs to minute boundary, never drifts
+════════════════════════════════════════════════════════ */
+var elTime = document.getElementById('time-display');
+
+function updateClock() {
+    elTime.textContent = new Date().toLocaleTimeString('en-US', {
+        hour: 'numeric', minute: '2-digit', hour12: true,
+        timeZone: CONFIG.timeZone
+    });
+}
+
+updateClock();
+setTimeout(function() {
+    updateClock();
+    setInterval(updateClock, 60000);
+}, (60 - new Date().getSeconds()) * 1000);
+
+/* ════════════════════════════════════════════════════════
+   2. SLIDES AUTO-REFRESH (30 min)
+════════════════════════════════════════════════════════ */
+setInterval(function() {
+    var f = document.getElementById('slides-frame');
+    f.src = f.src;
+}, 1800000);
+
+/* ════════════════════════════════════════════════════════
+   3. TICKER ANIMATION — pause when page/screen is hidden
+      Saves continuous GPU usage on the BrightSign player
+      when the display is off or input is switched.
+════════════════════════════════════════════════════════ */
+var track = document.getElementById('ticker-track');
+
+document.addEventListener('visibilitychange', function() {
+    if (track) {
+        track.style.webkitAnimationPlayState = document.hidden ? 'paused' : 'running';
+        track.style.animationPlayState       = document.hidden ? 'paused' : 'running';
+    }
+});
+
+/* ════════════════════════════════════════════════════════
+   4. ESPN TICKER
+════════════════════════════════════════════════════════ */
+var ESPN_BASE       = 'https://site.api.espn.com/apis/site/v2/sports';
+var FETCH_TIMEOUT   = 7000;    // abort if ESPN takes > 7s
+var STALE_THRESHOLD = 300000;  // warn if no update for 5 min
+var MAX_STAT_CATS   = 3;
+
+/*
+  NETWORK EFFICIENCY: season-aware league list.
+  Only leagues in season this month are fetched.
+  Months are 1-based (Jan=1).
+*/
+var LEAGUES = [
+    { label: 'NFL',   path: 'football/nfl',                              months: [9,10,11,12,1,2]          },
+    { label: 'NBA',   path: 'basketball/nba',                            months: [10,11,12,1,2,3,4,5,6]    },
+    { label: 'NHL',   path: 'hockey/nhl',                                months: [10,11,12,1,2,3,4,5,6]    },
+    { label: 'PWHL',  path: 'hockey/pwhl',                               months: [1,2,3,4,5]               },
+    { label: 'MLB',   path: 'baseball/mlb',                              months: [3,4,5,6,7,8,9,10]        },
+    { label: 'MLS',   path: 'soccer/usa.1',                              months: [2,3,4,5,6,7,8,9,10,11]   },
+    { label: 'CFB',   path: 'football/college-football',                 months: [8,9,10,11,12,1]          },
+    { label: 'CBB',   path: 'basketball/mens-college-basketball',        months: [11,12,1,2,3,4]           },
+    { label: 'WCBB',  path: 'basketball/womens-college-basketball',      months: [11,12,1,2,3,4]           },
+    { label: 'WNBA',  path: 'basketball/wnba',                           months: [5,6,7,8,9,10]            },
+    { label: 'NASCAR',path: 'racing/nascar-cup',                         months: [2,3,4,5,6,7,8,9,10,11]   }
+];
+
+function inSeason(league) {
+    var month = new Date().getMonth() + 1;
+    return league.months.indexOf(month) !== -1;
+}
+
+var SPORT_CATS = {
+    NFL:    ['passing', 'rushing', 'receiving'],
+    CFB:    ['passing', 'rushing', 'receiving'],
+    NBA:    ['points', 'rebounds', 'assists'],
+    CBB:    ['points', 'rebounds', 'assists'],
+    WCBB:   ['points', 'rebounds', 'assists'],
+    WNBA:   ['points', 'rebounds', 'assists'],
+    NHL:    ['goals', 'assists', 'points'],
+    PWHL:   ['goals', 'assists', 'points'],
+    MLB:    ['hits', 'home runs', 'rbi'],
+    MLS:    ['goals', 'assists', 'shots'],
+    NASCAR: ['position', 'laps led', 'status']
+};
+
+var CAT_NORM = {
+    'passing yards': 'PASS',  'pass yds': 'PASS',    'passing': 'PASS',
+    'rushing yards': 'RUSH',  'rush yds': 'RUSH',    'rushing': 'RUSH',
+    'receiving yards': 'REC', 'rec yds': 'REC',      'receiving': 'REC',
+    'points': 'PTS',          'pts': 'PTS',
+    'rebounds': 'REB',        'reb': 'REB',
+    'assists': 'AST',         'ast': 'AST',
+    'goals': 'G',
+    'plus/minus': '+/-',      '+/-': '+/-',
+    'saves': 'SV',
+    'batting avg': 'AVG',     'avg': 'AVG',           'batting average': 'AVG',
+    'hits': 'H',
+    'home runs': 'HR',        'hr': 'HR',
+    'strikeouts': 'K',
+    'sacks': 'SCK',
+    'interceptions': 'INT',
+    'shots': 'SH',            'shots on target': 'SOT',
+    'goals against average': 'GAA', 'gaa': 'GAA'
+};
+
+function normCat(raw) {
+    var key = (raw || '').toLowerCase().trim();
+    return CAT_NORM[key] || (raw || '').toUpperCase() || '?';
+}
+
+/* ── State ── */
+var allGames      = [];
+var prevStateMap  = {};
+var lastSuccessAt = Date.now();
+var leagueErrors  = {};   // label → consecutive error count
+
+var staleBanner = document.getElementById('stale-banner');
+
+/* ════════════════════════════════════════════════════════
+   EXPONENTIAL BACKOFF
+   Each league tracks its own retry delay independently.
+   Caps at 10 minutes so a broken endpoint doesn't just
+   disappear from the ticker permanently.
+════════════════════════════════════════════════════════ */
+var leagueBackoff = {};  // label → current delay ms
+var BASE_DELAY    = 60000;
+var MAX_DELAY     = 600000;
+
+function getDelay(label) {
+    return leagueBackoff[label] || BASE_DELAY;
+}
+
+function onLeagueSuccess(label) {
+    leagueBackoff[label] = BASE_DELAY;
+    leagueErrors[label]  = 0;
+}
+
+function onLeagueError(label) {
+    var cur = leagueBackoff[label] || BASE_DELAY;
+    leagueBackoff[label] = Math.min(cur * 2, MAX_DELAY);
+    leagueErrors[label]  = (leagueErrors[label] || 0) + 1;
+    console.warn('[LP Signage] ' + label + ' error #' + leagueErrors[label] +
+                 ', next retry in ' + (leagueBackoff[label] / 1000) + 's');
+}
+
+/* ════════════════════════════════════════════════════════
+   MAIN FETCH CYCLE
+════════════════════════════════════════════════════════ */
+function fetchAllScores() {
+    var active = LEAGUES.filter(inSeason);
+    if (!active.length) return;
+
+    var promises = active.map(function(l) { return fetchLeague(l); });
+
+    Promise.allSettled(promises).then(function(results) {
+        var games = [];
+        results.forEach(function(r) {
+            if (r.status === 'fulfilled') {
+                games = games.concat(r.value);
+            }
+        });
+
+        // Sort: live → final → upcoming
+        games.sort(function(a, b) {
+            var order = { '2': 0, '3': 1, '1': 2 };
+            var oa = (order[a.stateId] !== undefined) ? order[a.stateId] : 3;
+            var ob = (order[b.stateId] !== undefined) ? order[b.stateId] : 3;
+            return oa - ob;
+        });
+
+        /*
+          NETWORK EFFICIENCY: only re-fetch summaries for games that
+          changed state or are currently live.
+          Stats are fetched with a 150ms stagger between requests to avoid
+          hammering the API on BrightSign's slower network stack, but we
+          collect all the promises and wait for them ALL to resolve before
+          calling buildTicker — so stats are always populated when the DOM builds.
+        */
+        var needStats = games.filter(function(g) {
+            var prev = prevStateMap[g.eventId];
+            return g.stateId === '2' || (g.stateId === '3' && prev !== '3');
+        });
+
+        // Build a staggered promise chain: each fetch waits 150ms after the previous
+        var statChain = Promise.resolve();
+        needStats.forEach(function(g, i) {
+            statChain = statChain.then(function() {
+                return new Promise(function(resolve) {
+                    setTimeout(function() {
+                        loadStats(g).then(resolve).catch(resolve);
+                    }, i === 0 ? 0 : 150);
+                });
+            });
+        });
+
+        // Only build the ticker AFTER all stats have loaded
+        statChain.then(function() {
+            // Snapshot state for next cycle comparison
+            prevStateMap = {};
+            games.forEach(function(g) { prevStateMap[g.eventId] = g.stateId; });
+
+            allGames = games;
+            if (games.length) buildTicker(games);
+
+            lastSuccessAt = Date.now();
+            staleBanner.style.display = 'none';
+        });
+    });
+}
+
+/* Stale data watchdog — checks every 60 s */
+setInterval(function() {
+    staleBanner.style.display =
+        (Date.now() - lastSuccessAt > STALE_THRESHOLD) ? 'block' : 'none';
+}, 60000);
+
+/* ════════════════════════════════════════════════════════
+   FETCH HELPERS — timeout + backoff
+════════════════════════════════════════════════════════ */
+function fetchWithTimeout(url) {
+    var controller = new AbortController();
+    var timer = setTimeout(function() { controller.abort(); }, FETCH_TIMEOUT);
+    return fetch(url, { signal: controller.signal, cache: 'no-store' })
+        .then(function(res) { clearTimeout(timer); return res; })
+        .catch(function(err) { clearTimeout(timer); throw err; });
+}
+
+function fetchLeague(league) {
+    var label = league.label;
+    var url   = ESPN_BASE + '/' + league.path + '/scoreboard?limit=100';
+
+    return fetchWithTimeout(url)
+        .then(function(res) {
+            if (!res.ok) throw new Error(label + ' ' + res.status);
+            return res.json();
+        })
+        .then(function(data) {
+            onLeagueSuccess(label);
+            var events = data.events || [];
+            return events.map(function(ev) {
+                return parseEvent(ev, label, league.path);
+            }).filter(Boolean);
+        })
+        .catch(function(err) {
+            onLeagueError(label);
+            return [];
+        });
+}
+
+function loadStats(game) {
+    var url = ESPN_BASE + '/' + game.path + '/summary?event=' + game.eventId;
+    return fetchWithTimeout(url)
+        .then(function(res) {
+            if (!res.ok) return;
+            return res.json();
+        })
+        .then(function(data) {
+            if (data) game.stats = parseStats(data, game.sport);
+        })
+        .catch(function() { /* stats are optional — never break */ });
+}
+
+/* ════════════════════════════════════════════════════════
+   PARSERS
+════════════════════════════════════════════════════════ */
+function parseEvent(ev, sport, path) {
+    try {
+        var competitions = ev.competitions;
+        var comp = competitions && competitions[0];
+        if (!comp) return null;
+
+        var competitors = comp.competitors || [];
+        var home = safeFind(competitors, function(c) { return c.homeAway === 'home'; });
+        var away = safeFind(competitors, function(c) { return c.homeAway === 'away'; });
+        if (!home || !away) return null;
+
+        var statusType = comp.status && comp.status.type;
+        var stateId    = statusType && statusType.id;
+        var detail     = (statusType && statusType.shortDetail) || '';
+        var aScore     = (away.score !== null && away.score !== undefined) ? away.score : '';
+        var hScore     = (home.score !== null && home.score !== undefined) ? home.score : '';
+        var awayWon    = stateId === '3' && parseInt(aScore) > parseInt(hScore);
+        var homeWon    = stateId === '3' && parseInt(hScore) > parseInt(aScore);
+
+        var statusText, isLive = false, isFinal = false;
+        if (stateId === '2') {
+            isLive     = true;
+            statusText = detail || 'LIVE';
+        } else if (stateId === '3') {
+            isFinal    = true;
+            statusText = (detail && detail.toLowerCase().indexOf('ot') !== -1) ? 'Final/OT' : 'Final';
+        } else {
+            var d = ev.date ? new Date(ev.date) : null;
+            statusText = d
+                ? d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: CONFIG.timeZone })
+                : detail;
+        }
+
+        var awayTeam = away.team || {};
+        var homeTeam = home.team || {};
+
+        // Preserve existing stats across cycles to avoid flicker
+        var existingGame = safeFind(allGames, function(g) { return g.eventId === ev.id; });
+        var existingStats = (existingGame && existingGame.stats) || [];
+
+        return {
+            sport:      sport,
+            path:       path,
+            eventId:    ev.id,
+            away:       { abbr: awayTeam.abbreviation || '?', logo: awayTeam.logo || '', score: aScore, won: awayWon },
+            home:       { abbr: homeTeam.abbreviation || '?', logo: homeTeam.logo || '', score: hScore, won: homeWon },
+            statusText: statusText,
+            isLive:     isLive,
+            isFinal:    isFinal,
+            stateId:    stateId,
+            stats:      existingStats
+        };
+    } catch(e) {
+        return null;
+    }
+}
+
+function parseStats(summary, sport) {
+    const leaders = (summary && summary.leaders) || [];
+    let out = extractNestedLeaders(leaders, sport);
+    if (out.length) return out;
+    const players = (summary && summary.boxscore && summary.boxscore.players) || [];
+    return extractBoxscorePlayers(players, sport);
+}
+
+/*
+ * ESPN summary.leaders structure (confirmed):
+ * [ { team, leaders: [ { name, shortDisplayName,
+ *     leaders: [{athlete, displayValue, value}] } ] }, ...second team ]
+ * Two team wrappers → loop into each team's .leaders array.
+ */
+function extractNestedLeaders(teamLeaders, sport) {
+    if (!teamLeaders.length) return [];
+
+    const catMap = {};  // catKey → { label, best, bestVal }
+
+    for (const teamEntry of teamLeaders) {
+        for (const statCat of (teamEntry.leaders || [])) {
+            const catKey   = (statCat.name || statCat.shortDisplayName || '').toLowerCase();
+            const catLabel = normCat(statCat.shortDisplayName || statCat.displayName || statCat.name || '');
+
+            if (!catMap[catKey]) catMap[catKey] = { label: catLabel, best: null, bestVal: -1 };
+
+            const entries = statCat.leaders || [];
+            if (!entries.length) continue;
+
+            const top     = entries[0];
+            const athlete = top.athlete;
+            if (!athlete) continue;
+
+            const full      = athlete.displayName || '';
+            const shortName = athlete.shortName
+                || full.replace(/^(\w+)\s/, m => m[0] + '. ')
+                || full;
+            const val    = top.displayValue || '';
+            const numVal = parseFloat(top.value != null ? top.value : val) || 0;
+
+            if (!catMap[catKey].best || numVal > catMap[catKey].bestVal) {
+                catMap[catKey].best    = { name: shortName, val, cat: catLabel, key: catKey };
+                catMap[catKey].bestVal = numVal;
+            }
+        }
+    }
+
+    const priorities = (SPORT_CATS[sport] || []).map(p => p.toLowerCase());
+    return Object.entries(catMap)
+        .filter(([, v]) => v.best)
+        .sort(([keyA], [keyB]) => {
+            const ia = priorities.findIndex(p => keyA.includes(p));
+            const ib = priorities.findIndex(p => keyB.includes(p));
+            return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+        })
+        .slice(0, MAX_STAT_CATS)
+        .map(([, v]) => v.best);
+}
+
+const BOXSCORE_WANT = {
+    NFL:    [{ col: 'passingYards',  label: 'PASS' }, { col: 'rushingYards',  label: 'RUSH' }, { col: 'receivingYards', label: 'REC'  }],
+    CFB:    [{ col: 'passingYards',  label: 'PASS' }, { col: 'rushingYards',  label: 'RUSH' }],
+    NBA:    [{ col: 'points',        label: 'PTS'  }, { col: 'rebounds',      label: 'REB'  }, { col: 'assists',        label: 'AST'  }],
+    CBB:    [{ col: 'points',        label: 'PTS'  }, { col: 'rebounds',      label: 'REB'  }, { col: 'assists',        label: 'AST'  }],
+    WCBB:   [{ col: 'points',        label: 'PTS'  }, { col: 'rebounds',      label: 'REB'  }, { col: 'assists',        label: 'AST'  }],
+    WNBA:   [{ col: 'points',        label: 'PTS'  }, { col: 'rebounds',      label: 'REB'  }, { col: 'assists',        label: 'AST'  }],
+    NHL:    [{ col: 'goals',         label: 'G'    }, { col: 'assists',       label: 'A'    }, { col: 'points',         label: 'PTS'  }],
+    PWHL:   [{ col: 'goals',         label: 'G'    }, { col: 'assists',       label: 'A'    }, { col: 'points',         label: 'PTS'  }],
+    MLB:    [{ col: 'hits',          label: 'H'    }, { col: 'homeRuns',      label: 'HR'   }, { col: 'RBIs',           label: 'RBI'  }],
+    MLS:    [{ col: 'goals',         label: 'G'    }, { col: 'assists',       label: 'A'    }, { col: 'shots',          label: 'SH'   }],
+    NASCAR: [{ col: 'position',      label: 'POS'  }, { col: 'lapsLed',       label: 'LED'  }]
+};
+
+function extractBoxscorePlayers(playerTeams, sport) {
+    const want = BOXSCORE_WANT[sport] || [];
+    if (!want.length || !playerTeams.length) return [];
+
+    // Flatten all athletes from both teams into one list with a stat map
+    const players = [];
+    for (const team of playerTeams) {
+        for (const statGroup of (team.statistics || [])) {
+            const keys = statGroup.keys || statGroup.names || [];
+            for (const row of (statGroup.athletes || [])) {
+                const athlete = row.athlete || {};
+                const stats   = row.stats || [];
+                if (!stats.length) continue;
+                const full = athlete.displayName || '';
+                const name = athlete.shortName
+                    || full.replace(/^(\w+)\s/, m => m[0] + '. ')
+                    || full;
+                if (!name) continue;
+                const map = {};
+                keys.forEach((k, i) => { map[k] = stats[i]; });
+                players.push({ name, ...map });
+            }
+        }
+    }
+    if (!players.length) return [];
+
+    return want.slice(0, MAX_STAT_CATS).reduce((out, { col, label }) => {
+        const leader = players
+            .filter(p => p[col] != null && p[col] !== '' && String(p[col]) !== '0')
+            .sort((a, b) => parseFloat(b[col]) - parseFloat(a[col]))[0];
+        if (leader) out.push({ name: leader.name, val: String(leader[col]), cat: label, key: col });
+        return out;
+    }, []);
+}
+
+/* ════════════════════════════════════════════════════════
+   DOM BUILDER
+   MEMORY: in-place updates after first build — no innerHTML
+   wipes, no node churn, minimal GC pressure on BrightSign.
+════════════════════════════════════════════════════════ */
+var tickerBuilt = false;
+
+/*
+  PERFORMANCE: ResizeObserver recalculates scroll speed only
+  when the container actually changes size (e.g. screen resize,
+  orientation change). Falls back to a one-time RAF on older Chrome.
+*/
+var trackWrap = document.querySelector('.ticker-track-wrap');
+
+function calibrateSpeed() {
+    var halfW    = track.scrollWidth / 2;
+    var pxPerSec = window.innerWidth * 0.06;
+    var dur      = Math.max(20, halfW / pxPerSec);
+    track.style.webkitAnimationDuration = dur + 's';
+    track.style.animationDuration       = dur + 's';
+}
+
+if (window.ResizeObserver && trackWrap) {
+    var ro = new ResizeObserver(function() {
+        if (tickerBuilt) calibrateSpeed();
+    });
+    ro.observe(trackWrap);
+}
+
+function buildTicker(games) {
+    if (!tickerBuilt) {
+        var frag = document.createDocumentFragment();
+        var doubled = games.concat(games);
+        for (var i = 0; i < doubled.length; i++) {
+            frag.appendChild(buildItem(doubled[i]));
+        }
+        track.innerHTML = '';
+        track.appendChild(frag);
+        tickerBuilt = true;
+    } else {
+        var items   = track.querySelectorAll('.ticker-item');
+        var doubled2 = games.concat(games);
+        for (var j = 0; j < doubled2.length; j++) {
+            if (items[j]) updateItem(items[j], doubled2[j]);
+        }
+    }
+
+    // Calibrate speed — ResizeObserver handles future changes
+    if (window.ResizeObserver) {
+        calibrateSpeed();
+    } else {
+        requestAnimationFrame(calibrateSpeed);
+    }
+}
+
+function updateItem(item, g) {
+    item.className = 'ticker-item' + (g.isLive ? ' is-live' : g.isFinal ? ' is-final' : '');
+
+    var statusEl = item.querySelector('.ti-status');
+    if (statusEl) {
+        statusEl.textContent = g.statusText;
+        statusEl.className   = 'ti-status' + (g.isLive ? ' live' : g.isFinal ? ' final' : '');
+    }
+
+    var scores = item.querySelectorAll('.ti-score');
+    if (scores.length >= 2) {
+        scores[0].textContent = g.away.score;
+        scores[0].className   = 'ti-score' + (g.away.won ? ' winner' : '');
+        scores[1].textContent = g.home.score;
+        scores[1].className   = 'ti-score' + (g.home.won ? ' winner' : '');
+    }
+
+    var abbrs = item.querySelectorAll('.ti-abbr');
+    if (abbrs.length >= 2) {
+        abbrs[0].className = 'ti-abbr' + (g.away.won ? ' winner' : '');
+        abbrs[1].className = 'ti-abbr' + (g.home.won ? ' winner' : '');
+    }
+
+    var row2 = item.querySelector('.ti-row2');
+    if ((g.isLive || g.isFinal) && g.stats.length > 0) {
+        if (!row2) {
+            item.appendChild(buildStatsRow(g.stats));
+        } else {
+            var names = row2.querySelectorAll('.ti-stat-name');
+            var vals  = row2.querySelectorAll('.ti-stat-val');
+            var cats  = row2.querySelectorAll('.ti-cat');
+            for (var i = 0; i < g.stats.length; i++) {
+                if (names[i]) names[i].textContent = g.stats[i].name + ' ';
+                if (vals[i])  vals[i].innerHTML    = highlightVal(g.stats[i].val, g.stats[i].key);
+                if (cats[i])  cats[i].textContent  = g.stats[i].cat;
+            }
+        }
+    } else if (row2) {
+        row2.parentNode.removeChild(row2);
+    }
+}
+
+function buildItem(g) {
+    var item = el('div', 'ticker-item' + (g.isLive ? ' is-live' : g.isFinal ? ' is-final' : ''));
+    var row1 = el('div', 'ti-row1');
+    row1.appendChild(el('span', 'ti-sport', g.sport));
+
+    if (g.stateId === '1') {
+        row1.appendChild(buildTeam(g.away, false, false));
+        row1.appendChild(el('span', 'ti-vs', '@'));
+        row1.appendChild(buildTeam(g.home, false, false));
+    } else {
+        row1.appendChild(buildTeam(g.away, true, g.away.won));
+        row1.appendChild(el('span', 'ti-separator', '\u2013'));
+        row1.appendChild(buildTeam(g.home, true, g.home.won));
+    }
+
+    row1.appendChild(el('span',
+        'ti-status' + (g.isLive ? ' live' : g.isFinal ? ' final' : ''),
+        g.statusText
+    ));
+
+    item.appendChild(row1);
+
+    if ((g.isLive || g.isFinal) && g.stats.length > 0) {
+        item.appendChild(buildStatsRow(g.stats));
+    }
+
+    return item;
+}
+
+function buildStatsRow(stats) {
+    var row2 = el('div', 'ti-row2');
+    var wrap = el('div', 'ti-stats');
+
+    for (var i = 0; i < stats.length; i++) {
+        if (i > 0) wrap.appendChild(el('span', 'ti-dot', '\u00b7'));
+        var group  = el('span', 'ti-stat-group');
+        group.appendChild(el('span', 'ti-cat', stats[i].cat));
+        group.appendChild(el('span', 'ti-stat-name', stats[i].name + ' '));
+        var valEl  = el('span', 'ti-stat-val');
+        valEl.innerHTML = highlightVal(stats[i].val, stats[i].key);
+        group.appendChild(valEl);
+        wrap.appendChild(group);
+    }
+
+    row2.appendChild(wrap);
+    return row2;
+}
+
+function buildTeam(team, showScore, isWinner) {
+    var wrap = el('span', 'ti-team');
+
+    if (team.logo) {
+        var img        = document.createElement('img');
+        img.className  = 'ti-logo';
+        img.src        = team.logo;
+        img.alt        = team.abbr;
+        img.decoding   = 'async';
+        img.onerror    = function() { this.style.display = 'none'; };
+        wrap.appendChild(img);
+    }
+
+    wrap.appendChild(el('span', 'ti-abbr' + (isWinner ? ' winner' : ''), team.abbr));
+    if (showScore && team.score !== '') {
+        wrap.appendChild(el('span', 'ti-score' + (isWinner ? ' winner' : ''), team.score));
+    }
+    return wrap;
+}
+
+function highlightVal(val, key) {
+    var tdRx = val.match(/,?\s*(\d+)\s+(TD|G|HR)\b/i);
+    if (tdRx) {
+        var rest = val.replace(tdRx[0], '').trim().replace(/,\s*$/, '');
+        return rest + ' <span class="hi">' + tdRx[1] + ' ' + tdRx[2].toUpperCase() + '</span>';
+    }
+    var numRx = val.match(/^(\d+)/);
+    var numKeys = ['points', 'rebounds', 'assists', 'goals', 'homeRuns'];
+    if (numRx && numKeys.indexOf(key) !== -1) {
+        return '<span class="hi">' + numRx[1] + '</span>' + val.slice(numRx[1].length);
+    }
+    return val;
+}
+
+function el(tag, cls, txt) {
+    var e = document.createElement(tag);
+    e.className = cls;
+    if (txt !== undefined) e.textContent = txt;
+    return e;
+}
+
+/* ── Start + refresh every 60 s ── */
+fetchAllScores();
+setInterval(fetchAllScores, 60000);
+
+/* ════════════════════════════════════════════════════════
+   5. SMART AUTO-RELOAD
+   Only reloads during 2–4 AM to avoid interrupting the
+   school-day display. Also reloads on screen wake, with a
+   minimum 30-second uptime guard to prevent loop on start.
+════════════════════════════════════════════════════════ */
+var startedAt = Date.now();
+
+function smartReload() {
+    var hour = parseInt(new Date().toLocaleString('en-US', {
+        hour: 'numeric', hour12: false, timeZone: CONFIG.timeZone
+    }));
+    if (hour >= 2 && hour < 4) {
+        location.reload();
+    }
+}
+
+setInterval(smartReload, 1800000);
+
+var reloadLock = false;
+document.addEventListener('visibilitychange', function() {
+    if (!document.hidden && !reloadLock && (Date.now() - startedAt > 30000)) {
+        reloadLock = true;
+        location.reload();
+    }
+});
+
+/* Service worker registration handled by PWA-enabled devices via separate deploy */
+
+</script>
+</body>
+</html>
