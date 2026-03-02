@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#7a0019">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Digital Signage Dashboard</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="dns-prefetch" href="https://api.open-meteo.com">
+    <link rel="dns-prefetch" href="https://api.rainviewer.com">
+    <link rel="dns-prefetch" href="https://tile.cache.rainviewer.com">
+    <link href="https://fonts.googleapis.com/css2?family=Graduate&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="" defer></script>
+    <style>
+
+        :root {
+            --maroon: #7a0019;
+            --gold: #ffcc33;
+            --border: 2.2px solid white;
+        }
+
+        * { box-sizing: border-box; }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background-color: var(--maroon);
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            color: var(--gold);
+        }
+
+        body { border: var(--border); }
+
+        /* --- MAIN GRID LAYOUT --- */
+        .container {
+            display: grid;
+            grid-template-columns: 80% 20%;
+            grid-template-rows: 12% 73% 15%;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* --- HEADER --- */
+        .zone-header {
+            grid-column: 1 / 3;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-bottom: var(--border);
+            gap: 30px;
+        }
+
+        .header-logo {
+            height: 85%;
+            max-height: 110px;
+            object-fit: contain;
+            flex-shrink: 0;
+            border-radius: 12px;
+            filter: drop-shadow(3px 5px 6px rgba(0,0,0,0.5));
+        }
+
+        .logo-right { transform: scaleX(-1); }
+
+        .zone-header h1 {
+            margin: 0;
+            font-size: clamp(2.5rem, 5.5vw, 6rem);
+            white-space: nowrap;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-weight: normal;
+            color: var(--gold);
+            font-family: 'Graduate', sans-serif;
+            -webkit-text-stroke: 1.5px #fff;
+            text-shadow: 7px 7px 12px rgba(0,0,0,0.85);
+        }
+
+        /* --- SLIDES (Middle Left) --- */
+        .zone-slides {
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Chromium 87 (BrightSignOS 8.5) fallback: fills the zone cleanly */
+        .zone-slides iframe {
+            height: 100%;
+            width: 100%;
+            max-width: 100%;
+            border: none;
+            display: block;
+        }
+
+        /* Chrome 88+ and modern browsers: enforce true 16:9 ratio */
+        @supports (aspect-ratio: 16 / 9) {
+            .zone-slides iframe {
+                width: auto;
+                aspect-ratio: 16 / 9;
+            }
+        }
+
+        /* --- SIDEBAR (Middle Right) --- */
+        .zone-sidebar {
+            display: flex;
+            flex-direction: column;
+            border-left: var(--border);
+        }
+
+        .widget-time {
+            flex: 0 0 25%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border-bottom: var(--border);
+            text-align: center;
+            padding: 10px;
+        }
+
+        #day-display {
+            font-size: 2.5vw;
+            font-weight: 700;
+            color: var(--gold);
+            margin-bottom: 10px;
+            text-transform: capitalize;
+            line-height: 1;
+        }
+
+        #date-display {
+            font-size: 2.2vw;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 10px;
+            line-height: 1;
+        }
+
+        #time-display {
+            font-size: 3.5vw;
+            font-weight: 700;
+            color: var(--gold);
+            line-height: 1;
+        }
+
+        .widget-radar {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #radar-map {
+            width: 100%;
+            height: 100%;
+            background: #e0e0e0;
+        }
+
+        .radar-timestamp {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(255,255,255,0.9);
+            color: #000;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            z-index: 1000;
+            box-shadow: 0 0 5px rgba(0,0,0,0.3);
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .leaflet-control-zoom, .leaflet-control-attribution { display: none !important; }
+
+        /* GPU compositing hint for radar opacity animation */
+        .leaflet-layer { will-change: opacity; }
+
+        .location-marker {
+            width: 1vw;
+            height: 1vw;
+            min-width: 8px;
+            min-height: 8px;
+            background: #ff0000;
+            border: 1px solid #555;
+            border-radius: 50%;
+            box-shadow: 0 0 5px rgba(0,0,0,0.5);
+        }
+
+        .city-label {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            font-size: clamp(11px, 1.2vw, 22px);
+            font-weight: 700;
+            color: #444;
+            text-shadow: 1px 1px 0 white, -1px -1px 0 white, 1px -1px 0 white, -1px 1px 0 white;
+            font-family: 'Helvetica Neue', Arial, Helvetica, sans-serif;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            text-align: center;
+            line-height: 1.1;
+            margin: 0;
+            padding: 0;
+            transform: translateX(-50%);
+        }
+
+        .leaflet-tooltip-bottom { margin-top: 6px; }
+
+        /* --- FORECAST (Bottom Bar) --- */
+        .zone-forecast {
+            grid-column: 1 / 3;
+            border-top: var(--border);
+            display: flex;
+        }
+
+        .forecast-title {
+            width: 16%;
+            min-width: 180px;
+            font-size: clamp(1rem, 1.6vw, 2.4rem);
+            font-weight: bold;
+            color: #fff;
+            -webkit-text-stroke: 0.5px var(--gold);
+            border-right: var(--border);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            line-height: 1.2;
+            padding: 0 10px;
+            overflow: hidden;
+        }
+
+        #forecast-container {
+            flex-grow: 1;
+            display: flex;
+        }
+
+        .day-card {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border-right: var(--border);
+        }
+
+        .day-card:last-child { border-right: none; }
+
+        .day-name { font-size: clamp(0.8rem, 1.6vw, 2.3rem); margin-bottom: 5px; color: #fff; -webkit-text-stroke: 0.5px var(--gold); text-transform: uppercase; font-weight: 700; }
+        .day-icon { font-size: clamp(1.2rem, 3.5vh, 4.5vh); margin-bottom: 5px; color: #fff; }
+        .day-temp { font-size: clamp(0.9rem, 1.8vw, 2.7rem); font-weight: bold; color: #fff; -webkit-text-stroke: 0.5px var(--gold); }
+        .day-temp span { font-weight: normal; color: #fff; -webkit-text-stroke: 0.5px var(--gold); font-size: clamp(0.85rem, 1.6vw, 2.4rem); margin-left: 5px; }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="zone-header">
+            <img src="https://assets-rst7.rschooltoday.com/rst7files/uploads/sites/743/2026/02/20011730/GRAYBULLDOG-scaled.png" alt="Bulldog Left" class="header-logo" onerror="this.style.display='none'">
+            <h1>Lester Prairie Schools</h1>
+            <img src="https://assets-rst7.rschooltoday.com/rst7files/uploads/sites/743/2026/02/20011730/GRAYBULLDOG-scaled.png" alt="Bulldog Right" class="header-logo logo-right" onerror="this.style.display='none'">
+        </div>
+
+        <div class="zone-slides">
+            <iframe
+                id="slides-frame"
+                src="https://docs.google.com/presentation/d/e/2PACX-1vSvdTcNuS1rdz2dt385yfeAPpo2yL-ePwBdxGL91nXPNBuQGs1KfIcFnWhLSK6SuhIQiQMiW-ej0uwh/embed?start=true&loop=true&delayms=15000&rm=minimal"
+                allowfullscreen="true" mozallowfullscreen="true" webkitallowfullscreen="true">
+            </iframe>
+        </div>
+
+        <div class="zone-sidebar">
+            <div class="widget-time">
+                <div id="day-display">Loading...</div>
+                <div id="date-display">--</div>
+                <div id="time-display">--:--</div>
+            </div>
+            <div class="widget-radar">
+                <div id="radar-map"></div>
+                <div id="radar-timestamp" class="radar-timestamp">
+                    <span id="timestamp-text">--:--</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="zone-forecast">
+            <div class="forecast-title">LESTER PRAIRIE<br>7-DAY FORECAST</div>
+            <div id="forecast-container">
+                <div style="width:100%; text-align:center; padding-top:40px; color:#ffcc33;">Loading Forecast...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const CONFIG = {
+            latitude: 44.88757865052159,
+            longitude: -94.04388727392079,
+            tempUnit: 'fahrenheit',
+            windSpeedUnit: 'mph',
+            timeZone: undefined
+        };
+
+        /* --- 1. CLOCK --- */
+        const elDay      = document.getElementById('day-display');
+        const elDate     = document.getElementById('date-display');
+        const elTime     = document.getElementById('time-display');
+        const elForecast = document.getElementById('forecast-container');
+        const elSlides   = document.getElementById('slides-frame');
+
+        let clockOpts = null;
+
+        function getClockOpts() {
+            const tz = CONFIG.timeZone ? { timeZone: CONFIG.timeZone } : {};
+            return {
+                day:  { weekday: 'long', ...tz },
+                date: { month: 'short', day: 'numeric', year: 'numeric', ...tz },
+                time: { hour: 'numeric', minute: '2-digit', hour12: true, ...tz }
+            };
+        }
+
+        function updateClock() {
+            if (!clockOpts) clockOpts = getClockOpts();
+            const now = new Date();
+            elDay.innerText  = now.toLocaleDateString('en-US', clockOpts.day);
+            elDate.innerText = now.toLocaleDateString('en-US', clockOpts.date);
+            elTime.innerText = now.toLocaleTimeString('en-US', clockOpts.time);
+        }
+
+        // Run immediately, then sync to the next minute boundary so it never drifts
+        updateClock();
+        setTimeout(() => {
+            updateClock();
+            setInterval(updateClock, 60000);
+        }, (60 - new Date().getSeconds()) * 1000);
+
+        /* --- 2. RADAR --- */
+        function initRadar() {
+            const map = L.map('radar-map', {
+                zoomControl: false, attributionControl: false,
+                scrollWheelZoom: false, dragging: false,
+                doubleClickZoom: false, boxZoom: false, zoomSnap: 0
+            }).setView([CONFIG.latitude, CONFIG.longitude], 7);
+
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
+
+            const getMarkerSize = () => Math.max(8, Math.round(window.innerWidth * 0.01));
+            const markerSize = getMarkerSize();
+            L.marker([CONFIG.latitude, CONFIG.longitude], {
+                icon: L.divIcon({
+                    className: 'custom-pin',
+                    html: '<div class="location-marker"></div>',
+                    iconSize: [markerSize, markerSize],
+                    iconAnchor: [markerSize / 2, markerSize / 2]
+                })
+            }).addTo(map)
+              .bindTooltip("Lester<br>Prairie", { permanent: true, direction: 'bottom', offset: [0, 12], className: 'city-label' })
+              .openTooltip();
+
+            setTimeout(() => map.invalidateSize(), 500);
+
+            const elTimestamp = document.getElementById('timestamp-text');
+            let radarLayers = {}, frames = [], currentIndex = 0, animationTimer = null, prevLayer = null;
+
+            // Cached timestamp format options — rebuilt only when timezone changes
+            let tsOpts = { hour: 'numeric', minute: '2-digit' };
+
+            async function fetchRadarFrames() {
+                // Clear any running animation before async fetch to prevent overlap
+                if (animationTimer) { clearTimeout(animationTimer); animationTimer = null; }
+                try {
+                    const res = await fetch(
+                        'https://api.rainviewer.com/public/weather-maps.json?ts=' + Date.now(),
+                        { cache: 'no-store' }
+                    );
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    const data = await res.json();
+
+                    if (!data.radar?.past?.length) return;
+
+                    const host = data.host || "https://tile.cache.rainviewer.com";
+                    if (CONFIG.timeZone) tsOpts.timeZone = CONFIG.timeZone;
+
+                    frames = data.radar.past
+                        .sort((a, b) => a.time - b.time)
+                        .slice(-6)
+                        .map(item => ({
+                            time: item.time,
+                            // Pre-calculate timestamp string so animation loop just swaps a string
+                            timeStr: new Date(item.time * 1000).toLocaleTimeString('en-US', tsOpts)
+                        }));
+
+                    // Use a Set for O(1) stale-layer lookups
+                    const newTimestamps = new Set(frames.map(f => f.time));
+                    Object.keys(radarLayers).forEach(ts => {
+                        if (!newTimestamps.has(parseInt(ts))) {
+                            if (map.hasLayer(radarLayers[ts])) map.removeLayer(radarLayers[ts]);
+                            delete radarLayers[ts];
+                        }
+                    });
+
+                    frames.forEach(({ time: ts }) => {
+                        if (!radarLayers[ts]) {
+                            radarLayers[ts] = L.tileLayer(
+                                `${host}/v2/radar/${ts}/256/{z}/{x}/{y}/6/1_1.png`,
+                                { opacity: 0, zIndex: 100 }
+                            ).addTo(map);
+                        }
+                    });
+
+                    startAnimation();
+                } catch (e) {
+                    console.error("Radar fetch failed", e);
+                    setTimeout(fetchRadarFrames, 60000);
+                }
+            }
+
+            function startAnimation() {
+                if (animationTimer) clearTimeout(animationTimer);
+
+                function showFrame() {
+                    if (!frames.length) return;
+
+                    // Hide only the previous layer instead of all layers
+                    if (prevLayer) prevLayer.setOpacity(0);
+
+                    const ts = frames[currentIndex].time;
+                    if (radarLayers[ts]) {
+                        radarLayers[ts].setOpacity(1.0);
+                        prevLayer = radarLayers[ts];
+                        elTimestamp.innerText = frames[currentIndex].timeStr;
+                    }
+
+                    const delay = currentIndex === frames.length - 1 ? 2000 : 1200;
+                    currentIndex = (currentIndex + 1) % frames.length;
+                    animationTimer = setTimeout(showFrame, delay);
+                }
+
+                showFrame();
+            }
+
+            fetchRadarFrames();
+            setInterval(fetchRadarFrames, 900000);
+        }
+
+        window.addEventListener('load', () => setTimeout(initRadar, 500));
+
+        let reloadLock = false;
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && !reloadLock) {
+                reloadLock = true;
+                location.reload();
+            }
+        });
+
+        setInterval(() => location.reload(), 21600000); // 6 hours
+
+        /* --- 3. FORECAST --- */
+        const WEATHER_ICONS = {
+            0: 'fa-sun', 1: 'fa-cloud-sun', 2: 'fa-cloud-sun', 3: 'fa-cloud',
+            45: 'fa-smog', 48: 'fa-smog', 51: 'fa-cloud-rain', 53: 'fa-cloud-rain',
+            55: 'fa-cloud-rain', 61: 'fa-umbrella', 63: 'fa-umbrella', 65: 'fa-umbrella',
+            71: 'fa-snowflake', 73: 'fa-snowflake', 75: 'fa-snowflake',
+            95: 'fa-bolt', 96: 'fa-bolt', 99: 'fa-bolt'
+        };
+
+        async function fetchForecast() {
+            try {
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${CONFIG.latitude}&longitude=${CONFIG.longitude}&daily=weathercode,temperature_2m_max,temperature_2m_min&temperature_unit=${CONFIG.tempUnit}&windspeed_unit=${CONFIG.windSpeedUnit}&timezone=auto`;
+                const data = await (await fetch(url)).json();
+                if (data.timezone) {
+                    CONFIG.timeZone = data.timezone;
+                    clockOpts = getClockOpts();
+                }
+                renderForecast(data.daily);
+            } catch (e) {
+                console.error("Forecast fetch failed", e);
+            }
+        }
+
+        function renderForecast(daily) {
+            const frag = document.createDocumentFragment();
+            for (let i = 0; i < 7; i++) {
+                const date    = new Date(daily.time[i] + 'T12:00:00');
+                const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+                const icon    = WEATHER_ICONS[daily.weathercode[i]] || 'fa-cloud';
+                const hi      = Math.round(daily.temperature_2m_max[i]);
+                const lo      = Math.round(daily.temperature_2m_min[i]);
+
+                const card = document.createElement('div');
+                card.className = 'day-card';
+
+                const name = document.createElement('div');
+                name.className = 'day-name';
+                name.textContent = i === 0 ? 'Today' : dayName;
+
+                const img = document.createElement('i');
+                img.className = `day-icon fa-solid ${icon}`;
+
+                const temp = document.createElement('div');
+                temp.className = 'day-temp';
+                temp.textContent = `${hi}°`;
+
+                const loSpan = document.createElement('span');
+                loSpan.textContent = ` ${lo}°`;
+                temp.appendChild(loSpan);
+
+                card.appendChild(name);
+                card.appendChild(img);
+                card.appendChild(temp);
+                frag.appendChild(card);
+            }
+            elForecast.replaceChildren(frag);
+        }
+
+        fetchForecast();
+        setInterval(fetchForecast, 3600000);
+
+        /* --- 4. SLIDES AUTO-REFRESH (30 min) --- */
+        setInterval(() => { elSlides.src = elSlides.src; }, 1800000);
+
+        /* --- 5. SERVICE WORKER REGISTRATION (PWA) ---
+           Requires HTTPS or localhost. Silently skipped on file:// or unsupported browsers. */
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('SW registered:', reg.scope))
+                    .catch(err => console.log('SW registration skipped:', err));
+            });
+        }
+
+    </script>
+</body>
+</html>
