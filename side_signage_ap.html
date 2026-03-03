@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LP Signage - News</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://api.rss2json.com">
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+
+    <link rel="preload" as="image"
+          href="https://assets-rst7.rschooltoday.com/rst7files/uploads/sites/743/2026/02/27022515/bulldog-30gray-maroon-collar-scaled.png">
+
+    <link rel="preload" as="style"
+          href="https://fonts.googleapis.com/css2?family=Graduate&display=swap">
+    <link href="https://fonts.googleapis.com/css2?family=Graduate&display=swap"
+          rel="stylesheet" media="print" onload="this.media='all'">
+    <noscript>
+        <link href="https://fonts.googleapis.com/css2?family=Graduate&display=swap" rel="stylesheet">
+    </noscript>
+
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+          media="print" onload="this.media='all'">
+
+    <style>
+        :root {
+            --maroon: #7a0019;
+            --gold:   #ffcc33;
+            --border: 2.2px solid white;
+            --news-blue: #1a5fa8;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; }
+
+        body, html {
+            margin: 0; padding: 0;
+            width: 100vw; height: 100vh;
+            overflow: hidden;
+            background-color: var(--maroon);
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            color: var(--gold);
+        }
+
+        body { border: var(--border); }
+
+        .container {
+            display: grid;
+            grid-template-columns: 1fr;
+            grid-template-rows: 10vh 1fr 9.5vh;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* HEADER */
+        .zone-header {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            align-items: center;
+            border-bottom: var(--border);
+            padding: 0 2vw;
+        }
+
+        .header-left {
+            display: -webkit-flex;
+            display: flex;
+            -webkit-align-items: center;
+            align-items: center;
+            gap: 1.15vw;
+            -webkit-justify-content: flex-start;
+            justify-content: flex-start;
+        }
+
+        .header-center {
+            display: -webkit-flex;
+            display: flex;
+            -webkit-align-items: center;
+            align-items: center;
+            -webkit-justify-content: center;
+            justify-content: center;
+        }
+
+        .header-right {
+            display: -webkit-flex;
+            display: flex;
+            -webkit-align-items: center;
+            align-items: center;
+            -webkit-justify-content: flex-end;
+            justify-content: flex-end;
+        }
+
+        .header-logo {
+            height: 7.78vh;
+            width: auto;
+            object-fit: contain;
+            -webkit-flex-shrink: 0;
+            flex-shrink: 0;
+            border-radius: 0.63vw;
+            filter: drop-shadow(0.16vw 0.26vw 0.31vw rgba(0,0,0,0.5));
+        }
+
+        .zone-header h1 {
+            margin: 0;
+            font-size: 4.1vw;
+            white-space: nowrap;
+            text-transform: uppercase;
+            letter-spacing: 0.1vw;
+            font-weight: normal;
+            color: var(--gold);
+            font-family: 'Graduate', sans-serif;
+            -webkit-text-stroke: 0.08vw #fff;
+            text-shadow: 0.36vw 0.36vw 0.63vw rgba(0,0,0,0.85);
+        }
+
+        #time-display {
+            font-size: 3.23vw;
+            font-weight: 700;
+            color: var(--gold);
+            line-height: 1;
+            white-space: nowrap;
+        }
+
+        /* SLIDES */
+        .zone-slides {
+            overflow: hidden;
+            background: #000;
+            -webkit-transform: translateZ(0);
+            transform: translateZ(0);
+        }
+
+        .zone-slides iframe {
+            width: 100%; height: 100%;
+            border: none; display: block;
+        }
+
+        /* STALE BANNER */
+        #stale-banner {
+            display: none;
+            position: absolute;
+            bottom: 9.8vh;
+            right: 0.5vw;
+            background: rgba(180,0,0,0.85);
+            color: #fff;
+            font-size: 0.7vw;
+            font-weight: 700;
+            padding: 0.2vh 0.6vw;
+            border-radius: 0.2vw;
+            z-index: 100;
+            letter-spacing: 0.03vw;
+        }
+
+        /* NEWS TICKER */
+        .zone-ticker {
+            border-top: var(--border);
+            background: #0d0d0d;
+            display: -webkit-flex;
+            display: flex;
+            -webkit-align-items: stretch;
+            align-items: stretch;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .ticker-label {
+            display: -webkit-flex;
+            display: flex;
+            -webkit-flex-direction: column;
+            flex-direction: column;
+            -webkit-align-items: center;
+            align-items: center;
+            -webkit-justify-content: center;
+            justify-content: center;
+            background: var(--news-blue);
+            color: #fff;
+            font-weight: 900;
+            font-size: 1.4vw;
+            letter-spacing: 0.06vw;
+            padding: 0 1.2vw;
+            min-width: 6vw;
+            border-right: 0.15vw solid #0d3a6e;
+            -webkit-flex-shrink: 0;
+            flex-shrink: 0;
+            text-transform: uppercase;
+            line-height: 1.1;
+            text-align: center;
+        }
+
+        .ticker-label .tl-sub {
+            font-size: 0.65vw;
+            font-weight: 700;
+            color: rgba(255,255,255,0.7);
+            letter-spacing: 0.1vw;
+            margin-top: 0.2vh;
+        }
+
+        .ticker-track-wrap {
+            -webkit-flex: 1;
+            flex: 1;
+            overflow: hidden;
+            display: -webkit-flex;
+            display: flex;
+            -webkit-align-items: center;
+            align-items: center;
+        }
+
+        /*
+          GPU OPTIMIZATION: translateZ(0) promotes to own compositor layer.
+          Animation runs fully on GPU — no main-thread layout or paint.
+          will-change: transform is the modern equivalent for newer Chromium.
+          Both specified for BrightSign OS 8 / Chromium 79 compatibility.
+        */
+        .ticker-track {
+            display: -webkit-flex;
+            display: flex;
+            -webkit-align-items: center;
+            align-items: center;
+            white-space: nowrap;
+            -webkit-animation: tickerScroll 120s linear infinite;
+            animation: tickerScroll 120s linear infinite;
+            will-change: transform;
+            -webkit-transform: translateZ(0);
+            transform: translateZ(0);
+            height: 100%;
+        }
+
+        @-webkit-keyframes tickerScroll {
+            0%   { -webkit-transform: translateZ(0) translateX(0); }
+            100% { -webkit-transform: translateZ(0) translateX(-50%); }
+        }
+        @keyframes tickerScroll {
+            0%   { transform: translateZ(0) translateX(0); }
+            100% { transform: translateZ(0) translateX(-50%); }
+        }
+
+        /*
+          MEMORY OPTIMIZATION: contain layout style isolates each card.
+          Reduces recalculation scope on in-place DOM updates.
+        */
+        .ticker-item {
+            display: -webkit-inline-flex;
+            display: inline-flex;
+            -webkit-align-items: center;
+            align-items: center;
+            padding: 0 1.4vw 0 1.0vw;
+            height: 100%;
+            -webkit-flex-shrink: 0;
+            flex-shrink: 0;
+            contain: layout style;
+            gap: 0.65vw;
+        }
+
+        .ticker-divider {
+            display: -webkit-inline-flex;
+            display: inline-flex;
+            -webkit-align-items: center;
+            align-items: center;
+            -webkit-flex-shrink: 0;
+            flex-shrink: 0;
+            padding: 0 0.25vw;
+            height: 100%;
+            color: #282828;
+            font-size: 1.4vw;
+        }
+
+        /* data-cat attribute selectors drive badge colours — zero JS style ops */
+        .ti-cat {
+            font-size: 0.68vw;
+            font-weight: 800;
+            letter-spacing: 0.06vw;
+            text-transform: uppercase;
+            padding: 0.2vh 0.36vw;
+            border-radius: 0.15vw;
+            -webkit-flex-shrink: 0;
+            flex-shrink: 0;
+            color: #fff;
+            background: #333;
+            border: 0.04vw solid #444;
+        }
+
+        .ti-cat[data-cat="TOP"]      { background: #c8102e; border-color: #a50d26; }
+        .ti-cat[data-cat="US"]       { background: #1565c0; border-color: #0d47a1; }
+        .ti-cat[data-cat="WORLD"]    { background: #1a5fa8; border-color: #154d8a; }
+        .ti-cat[data-cat="POLITICS"] { background: #5c2d91; border-color: #4a2375; }
+        .ti-cat[data-cat="SPORTS"]   { background: #1a7f37; border-color: #156030; }
+        .ti-cat[data-cat="BUSINESS"] { background: #b45309; border-color: #924408; }
+        .ti-cat[data-cat="TECH"]     { background: #0e7490; border-color: #0b5e75; }
+        .ti-cat[data-cat="HEALTH"]   { background: #0f766e; border-color: #0b5e58; }
+        .ti-cat[data-cat="SCIENCE"]  { background: #6d28d9; border-color: #5b21b6; }
+
+        .ti-headline {
+            font-size: 1.28vw;
+            font-weight: 500;
+            color: #ddd;
+            white-space: nowrap;
+            letter-spacing: 0.01vw;
+        }
+
+        .ti-source {
+            font-size: 0.68vw;
+            font-weight: 600;
+            color: #444;
+            white-space: nowrap;
+            -webkit-flex-shrink: 0;
+            flex-shrink: 0;
+        }
+
+        .ticker-loading {
+            color: #666;
+            font-size: 0.9vw;
+            padding: 0 1.5vw;
+            display: -webkit-flex;
+            display: flex;
+            -webkit-align-items: center;
+            align-items: center;
+            gap: 0.5vw;
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <div class="zone-header">
+        <div class="header-left">
+            <img src="https://assets-rst7.rschooltoday.com/rst7files/uploads/sites/743/2026/02/27022515/bulldog-30gray-maroon-collar-scaled.png"
+                 alt="Bulldog" class="header-logo"
+                 decoding="async" loading="eager"
+                 onerror="this.style.display='none'">
+        </div>
+        <div class="header-center">
+            <h1>Lester Prairie Schools</h1>
+        </div>
+        <div class="header-right">
+            <div id="time-display">--:--</div>
+        </div>
+    </div>
+
+    <div class="zone-slides">
+        <iframe id="slides-frame"
+            src="https://docs.google.com/presentation/d/e/2PACX-1vSvdTcNuS1rdz2dt385yfeAPpo2yL-ePwBdxGL91nXPNBuQGs1KfIcFnWhLSK6SuhIQiQMiW-ej0uwh/embed?start=true&loop=true&delayms=15000&rm=minimal"
+            allowfullscreen="true" mozallowfullscreen="true" webkitallowfullscreen="true"
+            loading="eager">
+        </iframe>
+    </div>
+
+    <div class="zone-ticker">
+        <div class="ticker-label">
+            NEWS
+            <span class="tl-sub">Live</span>
+        </div>
+        <div class="ticker-track-wrap">
+            <div class="ticker-track" id="ticker-track">
+                <div class="ticker-loading">
+                    <i class="fa-solid fa-circle-notch fa-spin"></i> Loading headlines...
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<div id="stale-banner">&#9888; Headlines may be outdated</div>
+
+<script>
+/*
+  BRIGHTSIGN OS 8 / Chromium 79 compatibility:
+  - No optional chaining ?.
+  - No nullish coalescing ??
+  - No logical assignment ??=
+  - No numeric separators
+  - All -webkit- prefixes retained
+  - No PWA / service worker
+*/
+
+'use strict';
+
+/* ===================================================
+   SECTION 1: CLOCK
+   Completely isolated — no dependencies.
+   Syncs to the minute boundary so it never drifts.
+=================================================== */
+(function() {
+    try {
+        var el = document.getElementById('time-display');
+        if (!el) { return; }
+
+        function tick() {
+            try {
+                el.textContent = new Date().toLocaleTimeString('en-US', {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true,
+                    timeZone: 'America/Chicago'
+                });
+            } catch (e) {}
+        }
+
+        tick();
+        /* Sync to next minute boundary, then run every 60s */
+        setTimeout(function() {
+            tick();
+            setInterval(tick, 60000);
+        }, (60 - new Date().getSeconds()) * 1000);
+
+    } catch (e) {}
+})();
+
+/* ===================================================
+   SECTION 2: SLIDES AUTO-REFRESH (30 min)
+=================================================== */
+(function() {
+    try {
+        setInterval(function() {
+            try {
+                var f = document.getElementById('slides-frame');
+                if (f) { f.src = f.src; }
+            } catch (e) {}
+        }, 1800000);
+    } catch (e) {}
+})();
+
+/* ===================================================
+   SECTION 3: TICKER VISIBILITY PAUSE
+   Pauses GPU animation when screen is off/hidden.
+=================================================== */
+(function() {
+    try {
+        document.addEventListener('visibilitychange', function() {
+            try {
+                var t = document.getElementById('ticker-track');
+                if (!t) { return; }
+                var state = document.hidden ? 'paused' : 'running';
+                t.style.webkitAnimationPlayState = state;
+                t.style.animationPlayState = state;
+            } catch (e) {}
+        });
+    } catch (e) {}
+})();
+
+/* ===================================================
+   SECTION 4: NEWS TICKER
+   Source  : Google News RSS (aggregates AP, Reuters, etc.)
+   Proxy   : rss2json.com — converts RSS to JSON with CORS.
+             Works reliably with Google News standard RSS format.
+   Feeds   : 9 categories, 10 items each (~90 headlines)
+   Refresh : every 5 minutes
+=================================================== */
+(function() {
+    try {
+
+    var RSS2JSON  = 'https://api.rss2json.com/v1/api.json?count=10&rss_url=';
+    var TIMEOUT   = 9000;
+    var STALE_MS  = 600000;
+    var MAX_LEN   = 110;
+    var lastOk    = 0;
+    var built     = false;
+    var track     = document.getElementById('ticker-track');
+    var trackWrap = document.querySelector('.ticker-track-wrap');
+    var banner    = document.getElementById('stale-banner');
+
+    if (!track) { return; }
+
+    var FEEDS = [
+        { label: 'TOP',      url: 'https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en'                                          },
+        { label: 'US',       url: 'https://news.google.com/rss/headlines/section/topic/NATION?hl=en-US&gl=US&ceid=US:en'           },
+        { label: 'WORLD',    url: 'https://news.google.com/rss/headlines/section/topic/WORLD?hl=en-US&gl=US&ceid=US:en'            },
+        { label: 'POLITICS', url: 'https://news.google.com/rss/search?q=US+politics&hl=en-US&gl=US&ceid=US:en'                    },
+        { label: 'SPORTS',   url: 'https://news.google.com/rss/headlines/section/topic/SPORTS?hl=en-US&gl=US&ceid=US:en'          },
+        { label: 'BUSINESS', url: 'https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=en-US&gl=US&ceid=US:en'        },
+        { label: 'TECH',     url: 'https://news.google.com/rss/headlines/section/topic/TECHNOLOGY?hl=en-US&gl=US&ceid=US:en'      },
+        { label: 'HEALTH',   url: 'https://news.google.com/rss/headlines/section/topic/HEALTH?hl=en-US&gl=US&ceid=US:en'          },
+        { label: 'SCIENCE',  url: 'https://news.google.com/rss/headlines/section/topic/SCIENCE?hl=en-US&gl=US&ceid=US:en'         }
+    ];
+
+    /* AbortController available Chromium 66+, safe for BS OS 8 */
+    function fetchWithTimeout(url) {
+        var ctrl  = new AbortController();
+        var timer = setTimeout(function() { ctrl.abort(); }, TIMEOUT);
+        return fetch(url, { signal: ctrl.signal })
+            .then(function(r) { clearTimeout(timer); return r; })
+            .catch(function(e) { clearTimeout(timer); throw e; });
+    }
+
+    /* Google News titles: "Headline - Source Name" — split on last " - " */
+    function splitTitle(raw) {
+        var idx = raw.lastIndexOf(' - ');
+        if (idx > 15) {
+            return { title: raw.slice(0, idx).trim(), source: raw.slice(idx + 3).trim() };
+        }
+        return { title: raw.trim(), source: '' };
+    }
+
+    function parseFeed(json, label) {
+        var items = (json && json.items) ? json.items : [];
+        var out = [];
+        var i, raw, split, title;
+        for (i = 0; i < items.length; i++) {
+            raw = (items[i].title || '').trim();
+            if (!raw) { continue; }
+            split = splitTitle(raw);
+            title = split.title;
+            if (title.length > MAX_LEN) {
+                title = title.slice(0, MAX_LEN - 1) + '\u2026';
+            }
+            var pd = items[i].pubDate ? new Date(items[i].pubDate) : null;
+            if (pd && isNaN(pd.getTime())) { pd = null; }
+            out.push({
+                cat:    label,
+                title:  title,
+                source: split.source,
+                pub:    pd,
+                key:    title.slice(0, 40)
+            });
+        }
+        return out;
+    }
+
+    function fetchAll() {
+        var pending = FEEDS.length;
+        var all = [];
+        var seen = {};
+
+        function done(items) {
+            var i, k;
+            for (i = 0; i < items.length; i++) {
+                k = items[i].key;
+                if (!seen[k]) { seen[k] = true; all.push(items[i]); }
+            }
+            pending--;
+            if (pending === 0) { finish(); }
+        }
+
+        function finish() {
+            if (!all.length) {
+                checkStale();
+                return;
+            }
+            all.sort(function(a, b) {
+                var ta = a.pub ? a.pub.getTime() : 0;
+                var tb = b.pub ? b.pub.getTime() : 0;
+                return tb - ta;
+            });
+            lastOk = Date.now();
+            if (banner) { banner.style.display = 'none'; }
+            buildTicker(all);
+        }
+
+        var i;
+        for (i = 0; i < FEEDS.length; i++) {
+            (function(feed) {
+                var ep = RSS2JSON + encodeURIComponent(feed.url);
+                fetchWithTimeout(ep)
+                    .then(function(r) {
+                        if (!r.ok) { throw new Error('HTTP ' + r.status); }
+                        return r.json();
+                    })
+                    .then(function(j) { done(parseFeed(j, feed.label)); })
+                    .catch(function() { done([]); });
+            })(FEEDS[i]);
+        }
+    }
+
+    function checkStale() {
+        if (lastOk && (Date.now() - lastOk > STALE_MS)) {
+            if (banner) { banner.style.display = 'block'; }
+        }
+    }
+
+    /* Speed calibration — tuned to comfortable reading pace */
+    function calibrate() {
+        try {
+            var half     = track.scrollWidth / 2;
+            var pxPerSec = window.innerWidth * 0.055;
+            var dur      = Math.max(30, half / pxPerSec);
+            track.style.webkitAnimationDuration = dur + 's';
+            track.style.animationDuration = dur + 's';
+        } catch (e) {}
+    }
+
+    if (window.ResizeObserver && trackWrap) {
+        try {
+            var ro = new ResizeObserver(function() {
+                if (built) { calibrate(); }
+            });
+            ro.observe(trackWrap);
+        } catch (e) {}
+    }
+
+    function elc(tag, cls) {
+        var e = document.createElement(tag);
+        e.className = cls;
+        return e;
+    }
+
+    function buildItem(h) {
+        var item = elc('div', 'ticker-item');
+        var cat  = elc('span', 'ti-cat');
+        cat.setAttribute('data-cat', h.cat);
+        cat.textContent = h.cat;
+        item.appendChild(cat);
+        var hl = elc('span', 'ti-headline');
+        hl.textContent = h.title;
+        item.appendChild(hl);
+        if (h.source) {
+            var src = elc('span', 'ti-source');
+            src.textContent = h.source;
+            item.appendChild(src);
+        }
+        return item;
+    }
+
+    function updateItem(node, h) {
+        var c = node.querySelector('.ti-cat');
+        var t = node.querySelector('.ti-headline');
+        var s = node.querySelector('.ti-source');
+        if (c) { c.setAttribute('data-cat', h.cat); c.textContent = h.cat; }
+        if (t) { t.textContent = h.title; }
+        if (s) { s.textContent = h.source || ''; }
+    }
+
+    function buildDivider() {
+        var d = elc('span', 'ticker-divider');
+        d.textContent = '\u2022';
+        return d;
+    }
+
+    function buildTicker(headlines) {
+        var doubled = headlines.concat(headlines);
+        if (!built) {
+            var frag = document.createDocumentFragment();
+            var i;
+            for (i = 0; i < doubled.length; i++) {
+                frag.appendChild(buildItem(doubled[i]));
+                if (i < doubled.length - 1) { frag.appendChild(buildDivider()); }
+            }
+            track.innerHTML = '';
+            track.appendChild(frag);
+            built = true;
+        } else {
+            var nodes = track.querySelectorAll('.ticker-item');
+            var j;
+            for (j = 0; j < doubled.length; j++) {
+                if (nodes[j]) { updateItem(nodes[j], doubled[j]); }
+            }
+        }
+        if (window.ResizeObserver) {
+            calibrate();
+        } else {
+            requestAnimationFrame(calibrate);
+        }
+    }
+
+    /* Start and refresh every 5 minutes */
+    fetchAll();
+    setInterval(fetchAll, 300000);
+    setInterval(checkStale, 60000);
+
+    } catch (e) {}
+})();
+
+/* ===================================================
+   SECTION 5: SMART AUTO-RELOAD
+   Only fires 2-4 AM to avoid interrupting school day.
+   Screen-wake reload with 30s uptime guard.
+=================================================== */
+(function() {
+    try {
+        var startedAt = Date.now();
+
+        setInterval(function() {
+            try {
+                var h = parseInt(new Date().toLocaleString('en-US', {
+                    hour: 'numeric', hour12: false, timeZone: 'America/Chicago'
+                }));
+                if (h >= 2 && h < 4) { location.reload(); }
+            } catch (e) {}
+        }, 1800000);
+
+        var lock = false;
+        document.addEventListener('visibilitychange', function() {
+            try {
+                if (!document.hidden && !lock && (Date.now() - startedAt > 30000)) {
+                    lock = true;
+                    location.reload();
+                }
+            } catch (e) {}
+        });
+    } catch (e) {}
+})();
+
+</script>
+</body>
+</html>
