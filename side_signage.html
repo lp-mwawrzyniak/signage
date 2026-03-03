@@ -401,6 +401,30 @@
 
         .ti-dot { color: #444; font-size: 1.4vw; margin: 0 0.55vw; -webkit-flex-shrink: 0; flex-shrink: 0; }
 
+        /* ── News headline card ── */
+        .ticker-news {
+            max-width: 60vw;
+            background: #131320;
+            border-right-color: #22224a;
+        }
+
+        .ti-sport-news {
+            background: #1a1a3a !important;
+            border-color: #33337a !important;
+            color: #aabbff !important;
+        }
+
+        .ti-news-hl {
+            font-size: 1.2vw;
+            font-weight: 600;
+            color: #e8e8e8;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            letter-spacing: 0.01vw;
+            max-width: 52vw;
+        }
+
         .ticker-loading {
             color: #666;
             font-size: 0.9vw;
@@ -614,6 +638,7 @@ function normCat(raw) {
 
 /* ── State ── */
 var allGames      = [];
+var allNews       = [];
 var prevStateMap  = {};
 var lastSuccessAt = Date.now();
 var leagueErrors  = {};   // label → consecutive error count
@@ -704,10 +729,14 @@ function fetchAllScores() {
             games.forEach(function(g) { prevStateMap[g.eventId] = g.stateId; });
 
             allGames = games;
-            if (games.length) buildTicker(games);
 
-            lastSuccessAt = Date.now();
-            staleBanner.style.display = 'none';
+            // Fetch news then build ticker with news + scores
+            var activeLeagues = active;
+            fetchNews(activeLeagues).then(function() {
+                buildTicker(allGames, allNews);
+                lastSuccessAt = Date.now();
+                staleBanner.style.display = 'none';
+            });
         });
     });
 }
@@ -762,6 +791,38 @@ function loadStats(game) {
             if (data) game.stats = parseStats(data, game.sport);
         })
         .catch(function() { /* stats are optional — never break */ });
+}
+
+/* ════════════════════════════════════════════════════════
+   NEWS FETCH — ESPN per-sport /news endpoint
+   Up to 3 headlines per active league, deduped, max 15.
+════════════════════════════════════════════════════════ */
+var MAX_NEWS_PER_LEAGUE = 3;
+var MAX_NEWS_TOTAL      = 15;
+
+function fetchNews(activeLeagues) {
+    var promises = activeLeagues.map(function(league) {
+        var url = ESPN_BASE + '/' + league.path + '/news?limit=' + MAX_NEWS_PER_LEAGUE;
+        return fetchWithTimeout(url)
+            .then(function(res) { if (!res.ok) return []; return res.json(); })
+            .then(function(data) {
+                if (!data || !data.articles) return [];
+                return data.articles.slice(0, MAX_NEWS_PER_LEAGUE).map(function(a) {
+                    return { type: 'news', sport: league.label, headline: a.headline || '' };
+                }).filter(function(n) { return n.headline.length > 0; });
+            })
+            .catch(function() { return []; });
+    });
+    return Promise.allSettled(promises).then(function(results) {
+        var seen = {}, items = [];
+        results.forEach(function(r) {
+            if (r.status !== 'fulfilled') return;
+            r.value.forEach(function(n) {
+                if (!seen[n.headline]) { seen[n.headline] = true; items.push(n); }
+            });
+        });
+        allNews = items.slice(0, MAX_NEWS_TOTAL);
+    });
 }
 
 /* ════════════════════════════════════════════════════════
@@ -961,23 +1022,21 @@ if (window.ResizeObserver && trackWrap) {
     ro.observe(trackWrap);
 }
 
-function buildTicker(games) {
-    if (!tickerBuilt) {
-        var frag = document.createDocumentFragment();
-        var doubled = games.concat(games);
-        for (var i = 0; i < doubled.length; i++) {
-            frag.appendChild(buildItem(doubled[i]));
-        }
-        track.innerHTML = '';
-        track.appendChild(frag);
-        tickerBuilt = true;
-    } else {
-        var items   = track.querySelectorAll('.ticker-item');
-        var doubled2 = games.concat(games);
-        for (var j = 0; j < doubled2.length; j++) {
-            if (items[j]) updateItem(items[j], doubled2[j]);
-        }
+function buildTicker(games, news) {
+    news = news || [];
+    // Sequence: news headlines first, then scores — doubled for seamless loop
+    var sequence = news.concat(games);
+    var doubled  = sequence.concat(sequence);
+
+    // Always do a full rebuild since news+game count can change each cycle
+    var frag = document.createDocumentFragment();
+    for (var i = 0; i < doubled.length; i++) {
+        var card = (doubled[i].type === 'news') ? buildNewsItem(doubled[i]) : buildItem(doubled[i]);
+        frag.appendChild(card);
     }
+    track.innerHTML = '';
+    track.appendChild(frag);
+    tickerBuilt = true;
 
     // Calibrate speed — ResizeObserver handles future changes
     if (window.ResizeObserver) {
@@ -1027,6 +1086,16 @@ function updateItem(item, g) {
     } else if (row2) {
         row2.parentNode.removeChild(row2);
     }
+}
+
+/* Build a news headline card */
+function buildNewsItem(n) {
+    var item = el('div', 'ticker-item ticker-news');
+    var row  = el('div', 'ti-row1');
+    row.appendChild(el('span', 'ti-sport ti-sport-news', n.sport));
+    row.appendChild(el('span', 'ti-news-hl', n.headline));
+    item.appendChild(row);
+    return item;
 }
 
 function buildItem(g) {
