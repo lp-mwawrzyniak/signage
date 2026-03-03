@@ -548,6 +548,8 @@ var ESPN_BASE       = 'https://site.api.espn.com/apis/site/v2/sports';
 var FETCH_TIMEOUT   = 7000;    // abort if ESPN takes > 7s
 var STALE_THRESHOLD = 300000;  // warn if no update for 5 min
 var MAX_STAT_CATS   = 3;
+var SPORT_MAX_STATS = { MLB: 4 };
+function maxStats(sport) { return SPORT_MAX_STATS[sport] || MAX_STAT_CATS; }
 
 /*
   NETWORK EFFICIENCY: season-aware league list.
@@ -580,7 +582,7 @@ var SPORT_CATS = {
     WNBA:   ['points', 'rebounds', 'assists'],
     NHL:    ['goals', 'assists', 'points'],
     PWHL:   ['goals', 'assists', 'points'],
-    MLB:    ['hits', 'home runs', 'rbi'],
+    MLB:    ['hits', 'home runs', 'rbi', 'strikeouts'],
     MLS:    ['goals', 'assists', 'shots'],
     NASCAR: ['position', 'laps led', 'status']
 };
@@ -877,7 +879,7 @@ function extractNestedLeaders(teamLeaders, sport) {
             const ib = priorities.findIndex(p => keyB.includes(p));
             return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
         })
-        .slice(0, MAX_STAT_CATS)
+        .slice(0, maxStats(sport))
         .map(([, v]) => v.best);
 }
 
@@ -890,7 +892,7 @@ const BOXSCORE_WANT = {
     WNBA:   [{ col: 'points',        label: 'PTS'  }, { col: 'rebounds',      label: 'REB'  }, { col: 'assists',        label: 'AST'  }],
     NHL:    [{ col: 'goals',         label: 'G'    }, { col: 'assists',       label: 'A'    }, { col: 'points',         label: 'PTS'  }],
     PWHL:   [{ col: 'goals',         label: 'G'    }, { col: 'assists',       label: 'A'    }, { col: 'points',         label: 'PTS'  }],
-    MLB:    [{ col: 'hits',          label: 'H'    }, { col: 'homeRuns',      label: 'HR'   }, { col: 'RBIs',           label: 'RBI'  }],
+    MLB:    [{ col: 'hits',          label: 'H'    }, { col: 'homeRuns',      label: 'HR'   }, { col: 'RBIs',           label: 'RBI'  }, { col: 'strikeouts',    label: 'K'    }],
     MLS:    [{ col: 'goals',         label: 'G'    }, { col: 'assists',       label: 'A'    }, { col: 'shots',          label: 'SH'   }],
     NASCAR: [{ col: 'position',      label: 'POS'  }, { col: 'lapsLed',       label: 'LED'  }]
 };
@@ -921,7 +923,7 @@ function extractBoxscorePlayers(playerTeams, sport) {
     }
     if (!players.length) return [];
 
-    return want.slice(0, MAX_STAT_CATS).reduce((out, { col, label }) => {
+    return want.slice(0, maxStats(sport)).reduce((out, { col, label }) => {
         const leader = players
             .filter(p => p[col] != null && p[col] !== '' && String(p[col]) !== '0')
             .sort((a, b) => parseFloat(b[col]) - parseFloat(a[col]))[0];
