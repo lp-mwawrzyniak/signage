@@ -537,19 +537,34 @@ function updateClock() {
     });
 }
 
-updateClock();
-setTimeout(function() {
+/*
+  Self-scheduling setTimeout chain — immune to BrightSign's idle throttling.
+  Syncs to the next minute boundary, then reschedules itself every 60s.
+  Each call schedules the next one, so the browser can never silently drop it.
+*/
+function scheduleClock() {
     updateClock();
-    setInterval(updateClock, 60000);
-}, (60 - new Date().getSeconds()) * 1000);
+    var msToNextMinute = (60 - new Date().getSeconds()) * 1000;
+    setTimeout(function() {
+        updateClock();
+        (function tick() {
+            setTimeout(function() { updateClock(); tick(); }, 60000);
+        })();
+    }, msToNextMinute);
+}
+scheduleClock();
 
 /* ════════════════════════════════════════════════════════
    2. SLIDES AUTO-REFRESH (30 min)
+   Self-scheduling setTimeout — not throttleable by BrightSign.
 ════════════════════════════════════════════════════════ */
-setInterval(function() {
-    var f = document.getElementById('slides-frame');
-    f.src = f.src;
-}, 1800000);
+(function scheduleSlides() {
+    setTimeout(function() {
+        var f = document.getElementById('slides-frame');
+        if (f) f.src = f.src;
+        scheduleSlides();
+    }, 1800000);
+})();
 
 /* ════════════════════════════════════════════════════════
    3. TICKER ANIMATION — pause when page/screen is hidden
@@ -741,11 +756,7 @@ function fetchAllScores() {
     });
 }
 
-/* Stale data watchdog — checks every 60 s */
-setInterval(function() {
-    staleBanner.style.display =
-        (Date.now() - lastSuccessAt > STALE_THRESHOLD) ? 'block' : 'none';
-}, 60000);
+
 
 /* ════════════════════════════════════════════════════════
    FETCH HELPERS — timeout + backoff
@@ -1187,9 +1198,14 @@ function el(tag, cls, txt) {
     return e;
 }
 
-/* ── Start + refresh every 60 s ── */
+/* ── Start scores + self-scheduling refresh every 60s ── */
 fetchAllScores();
-setInterval(fetchAllScores, 60000);
+(function scheduleScores() {
+    setTimeout(function() {
+        fetchAllScores();
+        scheduleScores();
+    }, 60000);
+})();
 
 /* ════════════════════════════════════════════════════════
    5. SMART AUTO-RELOAD
@@ -1208,7 +1224,22 @@ function smartReload() {
     }
 }
 
-setInterval(smartReload, 1800000);
+/* ── Smart reload: self-scheduling, checks every 30 min ── */
+(function scheduleReload() {
+    setTimeout(function() {
+        smartReload();
+        scheduleReload();
+    }, 1800000);
+})();
+
+/* ── Stale banner watchdog: self-scheduling, checks every 60s ── */
+(function scheduleStaleCheck() {
+    setTimeout(function() {
+        staleBanner.style.display =
+            (Date.now() - lastSuccessAt > STALE_THRESHOLD) ? 'block' : 'none';
+        scheduleStaleCheck();
+    }, 60000);
+})();
 
 var reloadLock = false;
 document.addEventListener('visibilitychange', function() {
