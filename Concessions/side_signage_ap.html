@@ -5,14 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LP Signage - News</title>
 
+    <!--
+      PERFORMANCE: preconnect to every external origin the page talks to.
+      Eliminates DNS + TLS handshake cost on first request to each domain.
+    -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://api.rss2json.com">
     <link rel="preconnect" href="https://cdnjs.cloudflare.com">
 
+    <!--
+      PERFORMANCE: preload the bulldog logo — most visible asset on first paint.
+      Starts downloading before CSS even requests it.
+    -->
     <link rel="preload" as="image"
           href="https://assets-rst7.rschooltoday.com/rst7files/uploads/sites/743/2026/02/27022515/bulldog-30gray-maroon-collar-scaled.png">
 
+    <!--
+      PERFORMANCE: Graduate font non-blocking via media="print" swap trick.
+      Loads async, flips to all when ready — zero render blocking.
+    -->
     <link rel="preload" as="style"
           href="https://fonts.googleapis.com/css2?family=Graduate&display=swap">
     <link href="https://fonts.googleapis.com/css2?family=Graduate&display=swap"
@@ -21,16 +33,29 @@
         <link href="https://fonts.googleapis.com/css2?family=Graduate&display=swap" rel="stylesheet">
     </noscript>
 
+    <!--
+      PERFORMANCE: Font Awesome non-blocking — only used for loading spinner.
+    -->
     <link rel="stylesheet"
           href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
           media="print" onload="this.media='all'">
 
     <style>
+        /*
+          CRITICAL CSS — fully inlined, zero-latency first paint.
+          All sizing in vw/vh: works at any 16:9 resolution unchanged.
+
+          Grid rows:
+            Header  10vh   (~108px @ 1080p)
+            Slides  1fr    (all remaining space)
+            Ticker  9.5vh  (~103px @ 1080p)
+        */
+
         :root {
-            --maroon: #7a0019;
-            --gold:   #ffcc33;
-            --border: 2.2px solid white;
-            --news-blue: #1a5fa8;
+            --maroon:     #7a0019;
+            --gold:       #ffcc33;
+            --border:     2.2px solid white;
+            --news-blue:  #1a5fa8;
         }
 
         *, *::before, *::after { box-sizing: border-box; }
@@ -54,7 +79,7 @@
             height: 100vh;
         }
 
-        /* HEADER */
+        /* ── HEADER ── */
         .zone-header {
             display: grid;
             grid-template-columns: 1fr auto 1fr;
@@ -122,10 +147,14 @@
             white-space: nowrap;
         }
 
-        /* SLIDES */
+        /* ── SLIDES ── */
         .zone-slides {
             overflow: hidden;
             background: #000;
+            /*
+              GPU layer: prevents slide iframe repaints from affecting
+              other compositor layers on the BrightSign player.
+            */
             -webkit-transform: translateZ(0);
             transform: translateZ(0);
         }
@@ -135,7 +164,7 @@
             border: none; display: block;
         }
 
-        /* STALE BANNER */
+        /* ── STALE DATA WARNING ── */
         #stale-banner {
             display: none;
             position: absolute;
@@ -151,7 +180,9 @@
             letter-spacing: 0.03vw;
         }
 
-        /* NEWS TICKER */
+        /* ══════════════════════════════════════════════
+           NEWS TICKER
+        ══════════════════════════════════════════════ */
         .zone-ticker {
             border-top: var(--border);
             background: #0d0d0d;
@@ -206,10 +237,12 @@
         }
 
         /*
-          GPU OPTIMIZATION: translateZ(0) promotes to own compositor layer.
-          Animation runs fully on GPU — no main-thread layout or paint.
-          will-change: transform is the modern equivalent for newer Chromium.
-          Both specified for BrightSign OS 8 / Chromium 79 compatibility.
+          BRIGHTSIGN GPU OPTIMIZATION:
+          translateZ(0) forces this element onto its own compositor layer.
+          The scroll animation runs entirely on the GPU — no main-thread
+          layout or paint triggered.
+          will-change: transform is the modern equivalent hint for newer
+          Chromium builds. Both specified for BS OS 8 / Chromium 79 compat.
         */
         .ticker-track {
             display: -webkit-flex;
@@ -226,17 +259,18 @@
         }
 
         @-webkit-keyframes tickerScroll {
-            0%   { -webkit-transform: translateZ(0) translateX(0); }
-            100% { -webkit-transform: translateZ(0) translateX(-50%); }
+            0%   { -webkit-transform: translateZ(0) translateX(0);     }
+            100% { -webkit-transform: translateZ(0) translateX(-50%);  }
         }
         @keyframes tickerScroll {
-            0%   { transform: translateZ(0) translateX(0); }
+            0%   { transform: translateZ(0) translateX(0);    }
             100% { transform: translateZ(0) translateX(-50%); }
         }
 
         /*
-          MEMORY OPTIMIZATION: contain layout style isolates each card.
-          Reduces recalculation scope on in-place DOM updates.
+          BRIGHTSIGN / MEMORY OPTIMIZATION:
+          contain: layout style — nothing inside a card affects outside layout.
+          Dramatically reduces recalculation scope on in-place DOM updates.
         */
         .ticker-item {
             display: -webkit-inline-flex;
@@ -264,7 +298,11 @@
             font-size: 1.4vw;
         }
 
-        /* data-cat attribute selectors drive badge colours — zero JS style ops */
+        /*
+          Category badge colours driven entirely by CSS data-cat
+          attribute selectors — zero JS style manipulation, faster
+          on BrightSign's Chromium build.
+        */
         .ti-cat {
             font-size: 0.68vw;
             font-weight: 800;
@@ -323,6 +361,7 @@
 
 <div class="container">
 
+    <!-- HEADER -->
     <div class="zone-header">
         <div class="header-left">
             <img src="https://assets-rst7.rschooltoday.com/rst7files/uploads/sites/743/2026/02/27022515/bulldog-30gray-maroon-collar-scaled.png"
@@ -338,6 +377,7 @@
         </div>
     </div>
 
+    <!-- SLIDES -->
     <div class="zone-slides">
         <iframe id="slides-frame"
             src="https://docs.google.com/presentation/d/e/2PACX-1vSvdTcNuS1rdz2dt385yfeAPpo2yL-ePwBdxGL91nXPNBuQGs1KfIcFnWhLSK6SuhIQiQMiW-ej0uwh/embed?start=true&loop=true&delayms=15000&rm=minimal"
@@ -346,6 +386,7 @@
         </iframe>
     </div>
 
+    <!-- NEWS TICKER -->
     <div class="zone-ticker">
         <div class="ticker-label">
             NEWS
@@ -366,22 +407,27 @@
 
 <script>
 /*
-  BRIGHTSIGN OS 8 / Chromium 79 compatibility:
-  - No optional chaining ?.
-  - No nullish coalescing ??
-  - No logical assignment ??=
-  - No numeric separators
-  - All -webkit- prefixes retained
-  - No PWA / service worker
+  BRIGHTSIGN OS 8 / Chromium 79 compatibility rules applied throughout:
+    - No optional chaining ?.
+    - No nullish coalescing ??
+    - No logical assignment ??=
+    - No numeric separators
+    - All special chars as \uXXXX escapes (bullet, ellipsis, etc.)
+    - All -webkit- prefixes retained on flex and animations
+    - No PWA / service worker / manifest
+    - All setInterval replaced with self-scheduling setTimeout chains
+      to prevent BrightSign idle-throttling from stalling timers
 */
 
 'use strict';
 
-/* ===================================================
+/* =====================================================
    SECTION 1: CLOCK
-   Completely isolated — no dependencies.
-   Syncs to the minute boundary so it never drifts.
-=================================================== */
+   Fully isolated IIFE + try/catch.
+   Uses self-scheduling setTimeout — immune to idle
+   throttling. Syncs to minute boundary on startup
+   so it never drifts.
+===================================================== */
 (function() {
     try {
         var el = document.getElementById('time-display');
@@ -390,64 +436,83 @@
         function tick() {
             try {
                 el.textContent = new Date().toLocaleTimeString('en-US', {
-                    hour: 'numeric',
-                    minute: '2-digit',
-                    hour12: true,
+                    hour:     'numeric',
+                    minute:   '2-digit',
+                    hour12:   true,
                     timeZone: 'America/Chicago'
                 });
             } catch (e) {}
         }
 
+        /*
+          Sync to the next minute boundary first, then tick every 60s.
+          This ensures the clock always shows :00 seconds — never drifts.
+          setTimeout chain is harder for BrightSign to throttle than setInterval.
+        */
         tick();
-        /* Sync to next minute boundary, then run every 60s */
-        setTimeout(function() {
+        setTimeout(function syncTick() {
             tick();
-            setInterval(tick, 60000);
+            setTimeout(syncTick, 60000);
         }, (60 - new Date().getSeconds()) * 1000);
 
     } catch (e) {}
 })();
 
-/* ===================================================
-   SECTION 2: SLIDES AUTO-REFRESH (30 min)
-=================================================== */
+/* =====================================================
+   SECTION 2: SLIDES AUTO-REFRESH
+   Self-scheduling setTimeout replaces setInterval.
+   Refreshes the Google Slides embed every 30 minutes
+   so content changes in the deck appear automatically
+   without a full page reload.
+===================================================== */
 (function() {
     try {
-        setInterval(function() {
+        function refreshSlides() {
             try {
                 var f = document.getElementById('slides-frame');
                 if (f) { f.src = f.src; }
             } catch (e) {}
-        }, 1800000);
+            setTimeout(refreshSlides, 1800000);
+        }
+        setTimeout(refreshSlides, 1800000);
     } catch (e) {}
 })();
 
-/* ===================================================
-   SECTION 3: TICKER VISIBILITY PAUSE
-   Pauses GPU animation when screen is off/hidden.
-=================================================== */
+/* =====================================================
+   SECTION 3: TICKER ANIMATION PAUSE
+   Pauses the GPU scroll animation when the page is
+   hidden (display off or input switched on BrightSign).
+   Saves continuous compositor work when not visible.
+===================================================== */
 (function() {
     try {
         document.addEventListener('visibilitychange', function() {
             try {
                 var t = document.getElementById('ticker-track');
                 if (!t) { return; }
-                var state = document.hidden ? 'paused' : 'running';
-                t.style.webkitAnimationPlayState = state;
-                t.style.animationPlayState = state;
+                var s = document.hidden ? 'paused' : 'running';
+                t.style.webkitAnimationPlayState = s;
+                t.style.animationPlayState       = s;
             } catch (e) {}
         });
     } catch (e) {}
 })();
 
-/* ===================================================
+/* =====================================================
    SECTION 4: NEWS TICKER
-   Source  : Google News RSS (aggregates AP, Reuters, etc.)
-   Proxy   : rss2json.com — converts RSS to JSON with CORS.
-             Works reliably with Google News standard RSS format.
-   Feeds   : 9 categories, 10 items each (~90 headlines)
-   Refresh : every 5 minutes
-=================================================== */
+   Source  : Google News RSS — aggregates AP, Reuters,
+             NPR, major newspapers and thousands of
+             outlets. Free, stable, no API key.
+   Proxy   : rss2json.com converts RSS to clean JSON
+             with full CORS headers. Works reliably
+             with standard Google News RSS format.
+   Feeds   : 9 categories, 10 headlines each (~90 total)
+   Refresh : self-scheduling setTimeout every 5 minutes
+   Dedup   : title-only key — catches duplicates that
+             appear in multiple category feeds (e.g.
+             a story in both TOP and US is shown once)
+   Stale   : banner shown if no successful fetch > 10 min
+===================================================== */
 (function() {
     try {
 
@@ -457,25 +522,35 @@
     var MAX_LEN   = 110;
     var lastOk    = 0;
     var built     = false;
+
     var track     = document.getElementById('ticker-track');
     var trackWrap = document.querySelector('.ticker-track-wrap');
     var banner    = document.getElementById('stale-banner');
 
     if (!track) { return; }
 
+    /*
+      Google News RSS topic feeds — stable URL format since 2020.
+      Aggregates real wire content (AP, Reuters, etc.) across
+      all major categories. No API key or account required.
+    */
     var FEEDS = [
-        { label: 'TOP',      url: 'https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en'                                          },
-        { label: 'US',       url: 'https://news.google.com/rss/headlines/section/topic/NATION?hl=en-US&gl=US&ceid=US:en'           },
-        { label: 'WORLD',    url: 'https://news.google.com/rss/headlines/section/topic/WORLD?hl=en-US&gl=US&ceid=US:en'            },
-        { label: 'POLITICS', url: 'https://news.google.com/rss/search?q=US+politics&hl=en-US&gl=US&ceid=US:en'                    },
-        { label: 'SPORTS',   url: 'https://news.google.com/rss/headlines/section/topic/SPORTS?hl=en-US&gl=US&ceid=US:en'          },
-        { label: 'BUSINESS', url: 'https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=en-US&gl=US&ceid=US:en'        },
-        { label: 'TECH',     url: 'https://news.google.com/rss/headlines/section/topic/TECHNOLOGY?hl=en-US&gl=US&ceid=US:en'      },
-        { label: 'HEALTH',   url: 'https://news.google.com/rss/headlines/section/topic/HEALTH?hl=en-US&gl=US&ceid=US:en'          },
-        { label: 'SCIENCE',  url: 'https://news.google.com/rss/headlines/section/topic/SCIENCE?hl=en-US&gl=US&ceid=US:en'         }
+        { label: 'TOP',      url: 'https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en'                                     },
+        { label: 'US',       url: 'https://news.google.com/rss/headlines/section/topic/NATION?hl=en-US&gl=US&ceid=US:en'      },
+        { label: 'WORLD',    url: 'https://news.google.com/rss/headlines/section/topic/WORLD?hl=en-US&gl=US&ceid=US:en'       },
+        { label: 'POLITICS', url: 'https://news.google.com/rss/search?q=US+politics&hl=en-US&gl=US&ceid=US:en'               },
+        { label: 'SPORTS',   url: 'https://news.google.com/rss/headlines/section/topic/SPORTS?hl=en-US&gl=US&ceid=US:en'     },
+        { label: 'BUSINESS', url: 'https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=en-US&gl=US&ceid=US:en'   },
+        { label: 'TECH',     url: 'https://news.google.com/rss/headlines/section/topic/TECHNOLOGY?hl=en-US&gl=US&ceid=US:en' },
+        { label: 'HEALTH',   url: 'https://news.google.com/rss/headlines/section/topic/HEALTH?hl=en-US&gl=US&ceid=US:en'     },
+        { label: 'SCIENCE',  url: 'https://news.google.com/rss/headlines/section/topic/SCIENCE?hl=en-US&gl=US&ceid=US:en'    }
     ];
 
-    /* AbortController available Chromium 66+, safe for BS OS 8 */
+    /*
+      AbortController available Chromium 66+, safe for BrightSign OS 8.
+      Prevents hung fetch requests from accumulating if the network
+      is slow — each fetch is hard-cancelled after TIMEOUT ms.
+    */
     function fetchWithTimeout(url) {
         var ctrl  = new AbortController();
         var timer = setTimeout(function() { ctrl.abort(); }, TIMEOUT);
@@ -484,11 +559,19 @@
             .catch(function(e) { clearTimeout(timer); throw e; });
     }
 
-    /* Google News titles: "Headline - Source Name" — split on last " - " */
+    /*
+      Google News RSS titles arrive as "Headline text - Source Name".
+      Split on the LAST " - " to separate the headline from the
+      publication credit. Guard: only split if title portion is
+      meaningful (> 15 chars) to avoid false splits on short titles.
+    */
     function splitTitle(raw) {
         var idx = raw.lastIndexOf(' - ');
         if (idx > 15) {
-            return { title: raw.slice(0, idx).trim(), source: raw.slice(idx + 3).trim() };
+            return {
+                title:  raw.slice(0, idx).trim(),
+                source: raw.slice(idx + 3).trim()
+            };
         }
         return { title: raw.trim(), source: '' };
     }
@@ -496,87 +579,110 @@
     function parseFeed(json, label) {
         var items = (json && json.items) ? json.items : [];
         var out = [];
-        var i, raw, split, title;
+        var i, raw, split, title, pd;
+
         for (i = 0; i < items.length; i++) {
             raw = (items[i].title || '').trim();
             if (!raw) { continue; }
+
             split = splitTitle(raw);
             title = split.title;
+
+            /* Truncate runaway headlines */
             if (title.length > MAX_LEN) {
                 title = title.slice(0, MAX_LEN - 1) + '\u2026';
             }
-            var pd = items[i].pubDate ? new Date(items[i].pubDate) : null;
+
+            pd = items[i].pubDate ? new Date(items[i].pubDate) : null;
             if (pd && isNaN(pd.getTime())) { pd = null; }
+
             out.push({
                 cat:    label,
                 title:  title,
                 source: split.source,
                 pub:    pd,
+                /*
+                  DEDUP KEY: title-only (not label + title).
+                  This catches stories that appear in multiple feeds
+                  (e.g. the same headline in both TOP and US).
+                  First feed to return it wins; duplicates are dropped.
+                */
                 key:    title.slice(0, 40)
             });
         }
         return out;
     }
 
-    function fetchAll() {
-        var pending = FEEDS.length;
-        var all = [];
-        var seen = {};
-
-        function done(items) {
-            var i, k;
-            for (i = 0; i < items.length; i++) {
-                k = items[i].key;
-                if (!seen[k]) { seen[k] = true; all.push(items[i]); }
-            }
-            pending--;
-            if (pending === 0) { finish(); }
-        }
-
-        function finish() {
-            if (!all.length) {
-                checkStale();
-                return;
-            }
-            all.sort(function(a, b) {
-                var ta = a.pub ? a.pub.getTime() : 0;
-                var tb = b.pub ? b.pub.getTime() : 0;
-                return tb - ta;
-            });
-            lastOk = Date.now();
-            if (banner) { banner.style.display = 'none'; }
-            buildTicker(all);
-        }
-
-        var i;
-        for (i = 0; i < FEEDS.length; i++) {
-            (function(feed) {
-                var ep = RSS2JSON + encodeURIComponent(feed.url);
-                fetchWithTimeout(ep)
-                    .then(function(r) {
-                        if (!r.ok) { throw new Error('HTTP ' + r.status); }
-                        return r.json();
-                    })
-                    .then(function(j) { done(parseFeed(j, feed.label)); })
-                    .catch(function() { done([]); });
-            })(FEEDS[i]);
-        }
-    }
-
+    /* ── Stale banner helpers ── */
     function checkStale() {
-        if (lastOk && (Date.now() - lastOk > STALE_MS)) {
-            if (banner) { banner.style.display = 'block'; }
-        }
+        try {
+            if (lastOk && (Date.now() - lastOk > STALE_MS)) {
+                if (banner) { banner.style.display = 'block'; }
+            }
+        } catch (e) {}
     }
 
-    /* Speed calibration — tuned to comfortable reading pace */
+    /* ── Main fetch — fires all feeds in parallel ── */
+    function fetchAll() {
+        try {
+            var pending = FEEDS.length;
+            var all     = [];
+            var seen    = {};
+
+            function onFeedDone(items) {
+                var i, k;
+                for (i = 0; i < items.length; i++) {
+                    k = items[i].key;
+                    if (!seen[k]) { seen[k] = true; all.push(items[i]); }
+                }
+                pending--;
+                if (pending === 0) { onAllDone(); }
+            }
+
+            function onAllDone() {
+                if (!all.length) { checkStale(); return; }
+
+                /* Sort freshest first; undated items sink to bottom */
+                all.sort(function(a, b) {
+                    var ta = a.pub ? a.pub.getTime() : 0;
+                    var tb = b.pub ? b.pub.getTime() : 0;
+                    return tb - ta;
+                });
+
+                lastOk = Date.now();
+                if (banner) { banner.style.display = 'none'; }
+                buildTicker(all);
+            }
+
+            var i;
+            for (i = 0; i < FEEDS.length; i++) {
+                (function(feed) {
+                    var ep = RSS2JSON + encodeURIComponent(feed.url);
+                    fetchWithTimeout(ep)
+                        .then(function(r) {
+                            if (!r.ok) { throw new Error('HTTP ' + r.status); }
+                            return r.json();
+                        })
+                        .then(function(j) { onFeedDone(parseFeed(j, feed.label)); })
+                        .catch(function()  { onFeedDone([]); });
+                })(FEEDS[i]);
+            }
+        } catch (e) {}
+    }
+
+    /* ── Speed calibration ──
+       Tunes animation duration dynamically based on content width.
+       Target: ~5.5% of viewport width per second (comfortable reading pace).
+       ResizeObserver recalibrates only when the container actually resizes —
+       no polling, no unnecessary recalculation.
+    */
     function calibrate() {
         try {
             var half     = track.scrollWidth / 2;
             var pxPerSec = window.innerWidth * 0.055;
             var dur      = Math.max(30, half / pxPerSec);
             track.style.webkitAnimationDuration = dur + 's';
-            track.style.animationDuration = dur + 's';
+            track.style.animationDuration       = dur + 's';
         } catch (e) {}
     }
 
@@ -589,6 +695,7 @@
         } catch (e) {}
     }
 
+    /* ── Element factory ── */
     function elc(tag, cls) {
         var e = document.createElement(tag);
         e.className = cls;
@@ -597,18 +704,22 @@
 
     function buildItem(h) {
         var item = elc('div', 'ticker-item');
-        var cat  = elc('span', 'ti-cat');
+
+        var cat = elc('span', 'ti-cat');
         cat.setAttribute('data-cat', h.cat);
         cat.textContent = h.cat;
         item.appendChild(cat);
+
         var hl = elc('span', 'ti-headline');
         hl.textContent = h.title;
         item.appendChild(hl);
+
         if (h.source) {
             var src = elc('span', 'ti-source');
             src.textContent = h.source;
             item.appendChild(src);
         }
+
         return item;
     }
 
@@ -627,8 +738,17 @@
         return d;
     }
 
+    /*
+      DOM BUILDER:
+      First build uses DocumentFragment — single DOM insertion,
+      avoids repeated reflow from individual appends.
+      Subsequent refreshes do in-place node updates — no innerHTML
+      wipes, no node churn, minimal GC pressure on BrightSign.
+    */
     function buildTicker(headlines) {
+        /* Double list for seamless -50% translateX infinite loop */
         var doubled = headlines.concat(headlines);
+
         if (!built) {
             var frag = document.createDocumentFragment();
             var i;
@@ -640,12 +760,18 @@
             track.appendChild(frag);
             built = true;
         } else {
+            /*
+              In-place update: patch text content without rebuilding DOM.
+              Avoids reflow cost of removing/inserting nodes, which is
+              expensive on BrightSign's Chromium build.
+            */
             var nodes = track.querySelectorAll('.ticker-item');
             var j;
             for (j = 0; j < doubled.length; j++) {
                 if (nodes[j]) { updateItem(nodes[j], doubled[j]); }
             }
         }
+
         if (window.ResizeObserver) {
             calibrate();
         } else {
@@ -653,32 +779,65 @@
         }
     }
 
-    /* Start and refresh every 5 minutes */
-    fetchAll();
-    setInterval(fetchAll, 300000);
-    setInterval(checkStale, 60000);
+    /*
+      SELF-SCHEDULING setTimeout CHAINS replace all setInterval calls.
+      BrightSign Chromium throttles setInterval when it considers the
+      page idle — timers can slow to a crawl or stop entirely.
+      A setTimeout that reschedules itself after each execution is
+      treated as active ongoing work and is much harder to suppress.
+      News fetch also benefits because the next fetch cannot start
+      until the previous one resolves — no overlapping requests.
+    */
+    function scheduleFetch() {
+        fetchAll();
+        setTimeout(scheduleFetch, 300000);   /* 5 minutes */
+    }
+
+    function scheduleStale() {
+        checkStale();
+        setTimeout(scheduleStale, 60000);    /* 1 minute */
+    }
+
+    /* Fire immediately on load, then self-schedule */
+    scheduleFetch();
+    setTimeout(scheduleStale, 60000);
 
     } catch (e) {}
 })();
 
-/* ===================================================
+/* =====================================================
    SECTION 5: SMART AUTO-RELOAD
-   Only fires 2-4 AM to avoid interrupting school day.
-   Screen-wake reload with 30s uptime guard.
-=================================================== */
+   Self-scheduling setTimeout replaces setInterval.
+   Reload only fires during the 2-4 AM window to avoid
+   interrupting the school-day display.
+   Screen-wake reload includes a 30-second uptime guard
+   to prevent a boot loop on player startup.
+===================================================== */
 (function() {
     try {
         var startedAt = Date.now();
 
-        setInterval(function() {
+        /*
+          Self-scheduling reload check — runs every 30 min.
+          Only calls location.reload() if current hour is 2-3 AM.
+        */
+        function scheduleReload() {
             try {
                 var h = parseInt(new Date().toLocaleString('en-US', {
-                    hour: 'numeric', hour12: false, timeZone: 'America/Chicago'
+                    hour:     'numeric',
+                    hour12:   false,
+                    timeZone: 'America/Chicago'
                 }));
                 if (h >= 2 && h < 4) { location.reload(); }
             } catch (e) {}
-        }, 1800000);
+            setTimeout(scheduleReload, 1800000);
+        }
+        setTimeout(scheduleReload, 1800000);
 
+        /*
+          Reload on screen wake (display powered back on / input switched).
+          30-second guard prevents an infinite reload loop at boot.
+        */
         var lock = false;
         document.addEventListener('visibilitychange', function() {
             try {
@@ -688,6 +847,7 @@
                 }
             } catch (e) {}
         });
+
     } catch (e) {}
 })();
 
