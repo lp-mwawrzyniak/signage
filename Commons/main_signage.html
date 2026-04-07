@@ -7,17 +7,16 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Commons Digital Signage</title>
+    <title>Digital Signage Dashboard</title>
     <link rel="manifest" href="manifest.json">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="dns-prefetch" href="https://api.open-meteo.com">
     <link rel="dns-prefetch" href="https://api.rainviewer.com">
-    <link rel="dns-prefetch" href="https://tile.cache.rainviewer.com">
+    <link rel="dns-prefetch" href="https://tilecache.rainviewer.com">
     <link href="https://fonts.googleapis.com/css2?family=Graduate&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <style>
 
         :root {
@@ -305,6 +304,8 @@
         </div>
     </div>
 
+    <!-- Leaflet loaded here so it is guaranteed available before initRadar runs -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script>
         const CONFIG = {
             latitude: 44.88757865052159,
@@ -391,7 +392,7 @@
 
                     if (!data.radar?.past?.length) return;
 
-                    const host = data.host || "https://tile.cache.rainviewer.com";
+                    const host = data.host || "https://tilecache.rainviewer.com";
                     if (CONFIG.timeZone) tsOpts.timeZone = CONFIG.timeZone;
 
                     frames = data.radar.past
@@ -399,6 +400,7 @@
                         .slice(-6)
                         .map(item => ({
                             time: item.time,
+                            path: item.path,
                             // Pre-calculate timestamp string so animation loop just swaps a string
                             timeStr: new Date(item.time * 1000).toLocaleTimeString('en-US', tsOpts)
                         }));
@@ -412,10 +414,11 @@
                         }
                     });
 
-                    frames.forEach(({ time: ts }) => {
+                    // Use path from API response + Universal Blue (2) — only color scheme still supported
+                    frames.forEach(({ time: ts, path }) => {
                         if (!radarLayers[ts]) {
                             radarLayers[ts] = L.tileLayer(
-                                `${host}/v2/radar/${ts}/256/{z}/{x}/{y}/6/1_1.png`,
+                                `${host}${path}/256/{z}/{x}/{y}/2/1_1.png`,
                                 { opacity: 0, zIndex: 100 }
                             ).addTo(map);
                         }
@@ -463,7 +466,8 @@
             scheduleNextFetch();
         }
 
-        window.addEventListener('DOMContentLoaded', () => setTimeout(initRadar, 500));
+        // Leaflet is loaded just above so L is guaranteed defined here
+        setTimeout(initRadar, 500);
 
         let reloadLock = false;
         document.addEventListener('visibilitychange', () => {
