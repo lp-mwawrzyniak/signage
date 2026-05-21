@@ -473,35 +473,25 @@
    ===================================================== */
 const CONFIG = {
 
-    // Paste your published Google Sheets CSV URL here.
-    // File → Share → Publish to web → Select sheet → CSV → Publish → copy URL
     SHEET_CSV_URL: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS-mlEeCBZQ-Pk3n2vvBqyO7a3fN8Z0GP3zla1-sliSrKcwW_w04GNgfgcn0EulTZo4mohs2tewwTga/pub?gid=817383593&single=true&output=csv',
 
     // How often to check for score updates (milliseconds). Default: 30 seconds.
     POLL_INTERVAL: 30000,
 
-    // --- COLUMN MAPPING ---
-    // Which column (0-indexed) holds the team name?
-    TEAM_COLUMN: 1,
+    // Column 0 = Team name, Column 16 = Total Score
+    TEAM_COLUMN: 0,
+    SCORE_COLUMN: 16,
 
-    // Which column holds the score/points value?
-    SCORE_COLUMN: 17,
-
-    // Set true if multiple rows per team (Google Form submissions) — scores will be summed.
-    // Set false if one row per team with pre-totaled scores.
+    // One row per team with pre-totaled score — no aggregation needed
     AGGREGATE_MODE: false,
 
-    // Set true to skip the first row of the CSV (header row with column names).
+    // Skip the header row (Team, Hot Shots Basketball, … Total Score)
     SKIP_HEADER: true,
 
-    // Show debug status bar in bottom-right corner?
     DEBUG: false,
 
-    // -------------------------------------------------------
-    // DEMO MODE: Set true to use fake data instead of a sheet.
-    // Useful for testing the display before your sheet is ready.
+    // Live data — demo mode off
     DEMO_MODE: false,
-    // -------------------------------------------------------
 };
 
 /* =====================================================
