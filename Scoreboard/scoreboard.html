@@ -381,10 +381,15 @@
    CONFIG
    ============================================================= */
 var CONFIG = {
-    // Published CSV URL — this is the correct endpoint Google allows cross-origin fetches from.
-    // gviz/tq blocks cross-origin requests (CORS error). pub?output=csv does not.
+    // Google Apps Script Web App URL — paste your deployed URL here.
+    // The token below must match the token in your Apps Script code.
+    APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbyIMm2ywH5HHhmia6vIpzO9xyTxM-7D8u253jO4DGbFu8ckovPqRo-IaBkfLOebM64o/exec',
+    SCRIPT_TOKEN:    'bulldogs2026',
+
+    // Fallback: published CSV if Apps Script URL hasn't been set yet
     SHEET_CSV_URL:  'https://docs.google.com/spreadsheets/d/e/2PACX-1vS-mlEeCBZQ-Pk3n2vvBqyO7a3fN8Z0GP3zla1-sliSrKcwW_w04GNgfgcn0EulTZo4mohs2tewwTga/pub?gid=817383593&single=true&output=csv',
-    POLL_INTERVAL:  15000,   // 15 seconds
+
+    POLL_INTERVAL:  10000,
     TEAM_COLUMN:    0,
     SCORE_COLUMN:   22,
     AGGREGATE_MODE: false,
@@ -454,29 +459,45 @@ var cardsRight = document.getElementById('cards-right');
    FETCH
    ============================================================= */
 function fetchScores() {
-    if (CONFIG.DEMO_MODE) {
-        return Promise.resolve(shuffleDemo());
+    if (CONFIG.DEMO_MODE) return Promise.resolve(shuffleDemo());
+
+    var usingScript = CONFIG.APPS_SCRIPT_URL.indexOf('YOUR_DEPLOYMENT_ID') === -1;
+
+    if (usingScript) {
+        // Apps Script — returns JSON array, real-time, no caching, CORS-safe
+        var url = CONFIG.APPS_SCRIPT_URL + '?token=' + CONFIG.SCRIPT_TOKEN + '&_=' + Date.now();
+        return fetch(url, { cache: 'no-store' })
+            .then(function (res) {
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                return res.json();
+            })
+            .then(function (teams) {
+                if (!Array.isArray(teams)) throw new Error('Unexpected response');
+                setStatus('Script OK ' + new Date().toLocaleTimeString() + ' (' + teams.length + ' teams)');
+                return teams;
+            })
+            .catch(function (err) {
+                setStatus('Script failed: ' + err.message + ' — retrying…');
+                return null;
+            });
+    } else {
+        // Fallback: published CSV (used until Apps Script URL is configured)
+        var csvUrl = CONFIG.SHEET_CSV_URL + '&_=' + Date.now();
+        return fetch(csvUrl, { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } })
+            .then(function (res) {
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                return res.text();
+            })
+            .then(function (text) {
+                var teams = parseCSV(text);
+                setStatus('CSV OK ' + new Date().toLocaleTimeString() + ' (' + teams.length + ' teams)');
+                return teams;
+            })
+            .catch(function (err) {
+                setStatus('CSV failed: ' + err.message + ' — retrying…');
+                return null;
+            });
     }
-
-    var ts = '&_=' + Date.now();
-    var url = CONFIG.SHEET_CSV_URL + ts;
-
-    return fetch(url, { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } })
-        .then(function (res) {
-            if (!res.ok) throw new Error('HTTP ' + res.status);
-            return res.text();
-        })
-        .then(function (text) {
-            var teams = parseCSV(text);
-            setStatus('OK ' + new Date().toLocaleTimeString() + ' (' + teams.length + ' teams)');
-            return teams;
-        })
-        .catch(function (err) {
-            // On any failure, return null so the current display is left untouched.
-            // The next scheduled poll will try again automatically.
-            setStatus('Fetch failed ' + new Date().toLocaleTimeString() + ' — ' + err.message + ' (retrying…)');
-            return null;
-        });
 }
 
 function parseCSV(text) {
