@@ -381,11 +381,9 @@
    CONFIG
    ============================================================= */
 var CONFIG = {
-    // Primary: gviz endpoint — reads live sheet data, much less cached than the pub/CSV URL
+    // gviz endpoint reads live sheet data with minimal caching
     SHEET_CSV_URL:  'https://docs.google.com/spreadsheets/d/1LEs7QTzWphzvsPRaW7aEqKI591VQXPWePxqDDal57d8/gviz/tq?tqx=out:csv&gid=817383593',
-    // Fallback (original pub URL — used if gviz fails)
-    SHEET_FALLBACK_URL: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS-mlEeCBZQ-Pk3n2vvBqyO7a3fN8Z0GP3zla1-sliSrKcwW_w04GNgfgcn0EulTZo4mohs2tewwTga/pub?gid=817383593&single=true&output=csv',
-    POLL_INTERVAL:  15000,   // 15 seconds — safe for Google quota, catches changes quickly
+    POLL_INTERVAL:  15000,   // 15 seconds
     TEAM_COLUMN:    0,
     SCORE_COLUMN:   22,
     AGGREGATE_MODE: false,
@@ -460,28 +458,22 @@ function fetchScores() {
     }
 
     var ts = '&_=' + Date.now();
+    var url = CONFIG.SHEET_CSV_URL + ts;
 
-    function doFetch(url) {
-        return fetch(url + ts, { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } })
-            .then(function (res) {
-                if (!res.ok) throw new Error('HTTP ' + res.status);
-                return res.text();
-            })
-            .then(function (text) {
-                var teams = parseCSV(text);
-                setStatus('OK ' + new Date().toLocaleTimeString() + ' (' + teams.length + ' teams)');
-                return teams;
-            });
-    }
-
-    // Try gviz first; if it fails fall back to the published CSV URL
-    return doFetch(CONFIG.SHEET_CSV_URL)
-        .catch(function (err) {
-            setStatus('gviz failed (' + err.message + '), trying fallback…');
-            return doFetch(CONFIG.SHEET_FALLBACK_URL);
+    return fetch(url, { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } })
+        .then(function (res) {
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            return res.text();
+        })
+        .then(function (text) {
+            var teams = parseCSV(text);
+            setStatus('OK ' + new Date().toLocaleTimeString() + ' (' + teams.length + ' teams)');
+            return teams;
         })
         .catch(function (err) {
-            setStatus('Both URLs failed: ' + err.message);
+            // On any failure, return null so the current display is left untouched.
+            // The next scheduled poll will try again automatically.
+            setStatus('Fetch failed ' + new Date().toLocaleTimeString() + ' — ' + err.message + ' (retrying…)');
             return null;
         });
 }
