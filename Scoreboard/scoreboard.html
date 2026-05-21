@@ -219,22 +219,8 @@
         .team-card.row-odd  { background: linear-gradient(90deg, rgba(255,255,255,0.09) 0%, rgba(255,255,255,0.04) 100%); }
         .team-card.row-even { background: linear-gradient(90deg, rgba(0,0,0,0.20) 0%, rgba(0,0,0,0.10) 100%); }
 
-        /* blink highlight — toggled on/off by JS */
-        .team-card.blink-on {
-            box-shadow: 0 0 0 3px var(--gold), inset 0 0 0 9999px rgba(255,204,51,0.22);
-        }
-
-        /* held highlight during slide */
-        .team-card.score-highlighted {
-            box-shadow: 0 0 0 3px var(--gold), inset 0 0 0 9999px rgba(255,204,51,0.18);
-            transition: top 1.4s cubic-bezier(0.4, 0, 0.2, 1),
-                        box-shadow 0.8s ease-out;
-        }
-
-        /* suppress top transition during blink hold */
-        .team-card.hold-pos {
-            transition: none !important;
-        }
+        /* suppress top transition during blink phase */
+        .team-card.hold-pos { transition: none !important; }
 
         /* new team slide-in */
         .team-card.entering {
@@ -663,48 +649,44 @@ function flipColumn(wrap, newTeams, globalOffset, changed) {
 }
 
 /* =============================================================
-   BLINK ANIMATION  — 3 blinks → hold → slide → fade
+   BLINK ANIMATION  — 3 blinks → hold → slide → restore
+   Uses direct background style so overflow:hidden never clips it.
    ============================================================= */
 function animateBlink(card, rank, rowCls, cardH, newTop) {
-    var BLINK_ON  = 180;   // ms highlight on
-    var BLINK_OFF = 160;   // ms highlight off
-    var HOLD_MS   = 250;   // hold before slide
-    var SLIDE_MS  = 1400;  // matches CSS transition
+    var BLINK_ON  = 220;   // ms — highlight visible
+    var BLINK_OFF = 180;   // ms — highlight off between blinks
+    var HOLD_MS   = 350;   // ms — stay lit before sliding
+    var SLIDE_MS  = 1400;  // ms — must match CSS transition duration
 
-    // Lock position while blinking
-    card.className  = 'team-card rank-' + rank + ' ' + rowCls + ' hold-pos';
+    var GOLD_BG = 'linear-gradient(90deg, rgba(255,204,51,0.40) 0%, rgba(255,204,51,0.22) 100%)';
+    var OFF_BG  = '';      // empty = falls back to row-odd/row-even CSS class
+
+    // Freeze position and clear any previous inline background
+    card.className    = 'team-card rank-' + rank + ' ' + rowCls + ' hold-pos';
     card.style.height = cardH + 'px';
-    // do NOT set top yet — card stays put during blinks
+    card.style.background = OFF_BG;
 
-    var blink = 0;
-    function nextBlink() {
-        if (blink < 3) {
-            // ON
-            card.classList.add('blink-on');
-            setTimeout(function () {
-                // OFF (unless last blink — stay on)
-                if (blink < 2) card.classList.remove('blink-on');
-                blink++;
-                setTimeout(nextBlink, BLINK_OFF);
-            }, BLINK_ON);
-        } else {
-            // All blinks done — hold highlight, then slide
-            card.classList.add('score-highlighted');
-            setTimeout(function () {
-                // Enable transition, set new position
-                card.classList.remove('hold-pos', 'blink-on');
-                // force reflow before transition fires
-                void card.offsetWidth;
-                card.style.top = newTop + 'px';
+    // Sequence: on → off → on → off → on → hold → slide → restore
+    setTimeout(function() { card.style.background = GOLD_BG;  }, 0);
+    setTimeout(function() { card.style.background = OFF_BG;   }, BLINK_ON);
+    setTimeout(function() { card.style.background = GOLD_BG;  }, BLINK_ON + BLINK_OFF);
+    setTimeout(function() { card.style.background = OFF_BG;   }, BLINK_ON * 2 + BLINK_OFF);
+    setTimeout(function() { card.style.background = GOLD_BG;  }, BLINK_ON * 2 + BLINK_OFF * 2);
+    // 3rd blink stays on through the hold period — no off scheduled
 
-                // After slide completes, fade out glow
-                setTimeout(function () {
-                    card.classList.remove('score-highlighted');
-                }, SLIDE_MS + 100);
-            }, HOLD_MS);
-        }
-    }
-    nextBlink();
+    var slideAt = BLINK_ON * 3 + BLINK_OFF * 2 + HOLD_MS;
+
+    setTimeout(function() {
+        // Re-enable top transition, then set new position
+        card.classList.remove('hold-pos');
+        void card.offsetWidth;               // force reflow so transition fires
+        card.style.top = newTop + 'px';
+    }, slideAt);
+
+    // After slide completes, restore normal row background
+    setTimeout(function() {
+        card.style.background = OFF_BG;
+    }, slideAt + SLIDE_MS + 150);
 }
 
 /* =============================================================
