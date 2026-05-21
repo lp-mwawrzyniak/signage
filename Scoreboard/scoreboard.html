@@ -316,11 +316,15 @@
             display: none;
             position: absolute;
             bottom: 28px;
-            right: 12px;
-            font-size: 0.75rem;
-            color: rgba(255,255,255,0.3);
+            right: 18px;
+            background: rgba(0,0,0,0.7);
+            color: #0f0;
             font-family: monospace;
+            font-size: 1rem;
+            padding: 4px 10px;
+            border-radius: 4px;
             z-index: 30;
+            letter-spacing: 0.5px;
         }
 
     </style>
@@ -377,15 +381,18 @@
    CONFIG
    ============================================================= */
 var CONFIG = {
-    SHEET_CSV_URL:  'https://docs.google.com/spreadsheets/d/e/2PACX-1vS-mlEeCBZQ-Pk3n2vvBqyO7a3fN8Z0GP3zla1-sliSrKcwW_w04GNgfgcn0EulTZo4mohs2tewwTga/pub?gid=817383593&single=true&output=csv',
-    POLL_INTERVAL:  30000,   // ms between fetches
-    TEAM_COLUMN:    0,        // col index of team name
-    SCORE_COLUMN:   22,       // col index of Total Score
-    AGGREGATE_MODE: false,    // false = one row per team, pre-totalled
+    // Primary: gviz endpoint — reads live sheet data, much less cached than the pub/CSV URL
+    SHEET_CSV_URL:  'https://docs.google.com/spreadsheets/d/1LEs7QTzWphzvsPRaW7aEqKI591VQXPWePxqDDal57d8/gviz/tq?tqx=out:csv&gid=817383593',
+    // Fallback (original pub URL — used if gviz fails)
+    SHEET_FALLBACK_URL: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS-mlEeCBZQ-Pk3n2vvBqyO7a3fN8Z0GP3zla1-sliSrKcwW_w04GNgfgcn0EulTZo4mohs2tewwTga/pub?gid=817383593&single=true&output=csv',
+    POLL_INTERVAL:  15000,   // 15 seconds — safe for Google quota, catches changes quickly
+    TEAM_COLUMN:    0,
+    SCORE_COLUMN:   22,
+    AGGREGATE_MODE: false,
     SKIP_HEADER:    true,
-    LEFT_COUNT:     5,        // teams in left column (rest go right)
-    CARD_GAP:       5,        // px gap between cards
-    DEBUG:          false,
+    LEFT_COUNT:     5,
+    CARD_GAP:       5,
+    DEBUG:          true,    // set false once confirmed working
     DEMO_MODE:      false
 };
 
@@ -452,18 +459,29 @@ function fetchScores() {
         return Promise.resolve(shuffleDemo());
     }
 
-    // Cache-bust with timestamp; also send no-cache headers
-    var url = CONFIG.SHEET_CSV_URL + '&_=' + Date.now();
-    return fetch(url, { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } })
-        .then(function (res) {
-            if (!res.ok) throw new Error('HTTP ' + res.status);
-            return res.text();
-        })
-        .then(function (text) {
-            return parseCSV(text);
+    var ts = '&_=' + Date.now();
+
+    function doFetch(url) {
+        return fetch(url + ts, { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } })
+            .then(function (res) {
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                return res.text();
+            })
+            .then(function (text) {
+                var teams = parseCSV(text);
+                setStatus('OK ' + new Date().toLocaleTimeString() + ' (' + teams.length + ' teams)');
+                return teams;
+            });
+    }
+
+    // Try gviz first; if it fails fall back to the published CSV URL
+    return doFetch(CONFIG.SHEET_CSV_URL)
+        .catch(function (err) {
+            setStatus('gviz failed (' + err.message + '), trying fallback…');
+            return doFetch(CONFIG.SHEET_FALLBACK_URL);
         })
         .catch(function (err) {
-            setStatus('Fetch error: ' + err.message);
+            setStatus('Both URLs failed: ' + err.message);
             return null;
         });
 }
@@ -700,7 +718,7 @@ function makeCard(t, rank, colIdx, cardH, animate) {
    HELPERS
    ============================================================= */
 function getCardH(wrap, numRows) {
-    var h = wrap.getBoundingClientRect().height;
+    var h = wrap.offsetHeight;   // offsetHeight is unaffected by CSS transform scale
     var GAP = CONFIG.CARD_GAP;
     // total gaps = (numRows - 1) * GAP; divide remainder among rows
     var cardH = Math.floor((h - (numRows - 1) * GAP) / numRows);
@@ -718,8 +736,8 @@ function escapeHTML(s) {
 }
 
 function setStatus(msg) {
-    if (!CONFIG.DEBUG) return;
     var el = document.getElementById('status-bar');
+    if (!CONFIG.DEBUG) { el.style.display = 'none'; return; }
     el.style.display = 'block';
     el.textContent   = msg;
 }
