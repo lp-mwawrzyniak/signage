@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bulldog Olympics Scoreboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Graduate&family=Oswald:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+
+        /* =============================================
+           CONFIGURATION — Edit values below as needed
+           ============================================= */
+
+        /*
+         *  HOW TO CONNECT YOUR GOOGLE SHEET:
+         *
+         *  1. Open your Google Sheet (linked to your Google Form).
+         *  2. Go to File → Share → Publish to web.
+         *  3. Choose the correct sheet tab, select "Comma-separated values (.csv)", click Publish.
+         *  4. Copy the URL and paste it into SHEET_CSV_URL in the <script> section below.
+         *
+         *  EXPECTED SHEET COLUMNS (edit column names in the CONFIG section):
+         *   - If using aggregate mode (Google Form submissions):
+         *       Column A = Team Name   (e.g. "Team")
+         *       Column B = Points earned per submission  (e.g. "Points")
+         *       → The scoreboard will SUM all points for each team automatically.
+         *
+         *   - If using direct mode (one row per team, pre-totaled):
+         *       Column A = Team Name   (e.g. "Team")
+         *       Column B = Total Score (e.g. "Score")
+         *       → Set AGGREGATE_MODE: false in CONFIG below.
+         */
+
+        :root {
+            --maroon:      #7a0019;
+            --maroon-dark: #5a0012;
+            --maroon-mid:  #8f001e;
+            --gold:        #ffcc33;
+            --gold-dim:    #c99a00;
+            --white:       #ffffff;
+            --border:      2.2px solid white;
+            --card-radius: 10px;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body, html {
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background: #000;
+            font-family: 'Oswald', sans-serif;
+            color: var(--gold);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* ========== 16:9 SCALING WRAPPER ========== */
+        /* Always renders at 1920×1080 internally, then scales to fit any screen */
+        .scale-root {
+            width: 1920px;
+            height: 1080px;
+            transform-origin: top left;
+            position: relative;
+            background: var(--maroon);
+            border: var(--border);
+            overflow: hidden;
+        }
+
+        /* ========== LAYOUT ========== */
+        .page {
+            display: grid;
+            grid-template-rows: 13% 87%;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* ========== HEADER ========== */
+        .header {
+            position: relative;
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            align-items: center;
+            border-bottom: var(--border);
+            background: linear-gradient(180deg, #5a0012 0%, var(--maroon) 100%);
+            padding: 0 28px;
+            overflow: hidden;
+        }
+
+        /* subtle diagonal texture lines */
+        .header::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: repeating-linear-gradient(
+                -55deg,
+                transparent,
+                transparent 18px,
+                rgba(255,204,51,0.04) 18px,
+                rgba(255,204,51,0.04) 19px
+            );
+            pointer-events: none;
+        }
+
+        /* Left slot: logo */
+        .header-left {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 16px;
+        }
+
+        .header-logo {
+            height: 90px;
+            object-fit: contain;
+            flex-shrink: 0;
+            border-radius: 10px;
+            filter: drop-shadow(2px 4px 6px rgba(0,0,0,0.6));
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Center slot: title */
+        .header-center {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .header-title {
+            font-family: 'Graduate', sans-serif;
+            font-size: 5rem;
+            white-space: nowrap;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            color: var(--gold);
+            -webkit-text-stroke: 1.5px #fff;
+            text-shadow: 6px 6px 14px rgba(0,0,0,0.9);
+            position: relative;
+            z-index: 1;
+            line-height: 1;
+        }
+
+        /* Right slot: clock */
+        .header-right {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+        }
+
+        .header-clock {
+            text-align: right;
+            z-index: 2;
+            line-height: 1;
+        }
+
+        .clock-time {
+            font-family: 'Graduate', sans-serif;
+            font-size: 4.8rem;
+            color: var(--gold);
+            text-shadow: 2px 2px 6px rgba(0,0,0,0.8);
+            letter-spacing: 1px;
+        }
+
+        .corner-date {
+            position: absolute;
+            bottom: 10px;
+            right: 16px;
+            font-size: 1rem;
+            font-weight: 400;
+            color: rgba(255,255,255,0.55);
+            letter-spacing: 0.5px;
+            font-family: 'Oswald', sans-serif;
+            z-index: 10;
+        }
+
+        /* ========== LEADERBOARD AREA ========== */
+        .leaderboard-area {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0;
+            padding: 16px 20px 14px;
+            overflow: hidden;
+        }
+
+        .leaderboard-col {
+            position: relative;   /* FLIP animation anchor */
+            padding: 0 10px;
+        }
+
+        .leaderboard-col:first-child {
+            border-right: var(--border);
+            padding-right: 20px;
+        }
+
+        .leaderboard-col:last-child {
+            padding-left: 20px;
+        }
+
+        /* ========== TEAM CARD ========== */
+        /*
+         * Cards are absolutely positioned inside their column so that
+         * the FLIP animation can move them by adjusting `top` with
+         * a CSS transition.  JavaScript sets --card-top on each card.
+         */
+        .team-card {
+            position: absolute;
+            left: 10px;
+            right: 10px;
+            /* height is set dynamically via --card-h JS variable */
+            height: var(--card-h, 60px);
+            top: calc(var(--card-top, 0) * 1px);
+
+            display: flex;
+            align-items: center;
+            gap: 0;
+
+            border-radius: var(--card-radius);
+            overflow: hidden;
+
+            /* smooth position transitions */
+            transition: top 1.4s cubic-bezier(0.4, 0, 0.2, 1),
+                        transform 1.4s cubic-bezier(0.4, 0, 0.2, 1),
+                        background 0.6s ease;
+
+            will-change: top, transform;
+        }
+
+        /* rank badge on left */
+        .rank-badge {
+            flex: 0 0 auto;
+            width: clamp(38px, 5vw, 70px);
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--maroon-dark);
+            font-family: 'Graduate', sans-serif;
+            font-size: clamp(1.1rem, 2.2vw, 2.8rem);
+            color: var(--gold);
+            border-right: 2px solid rgba(255,255,255,0.15);
+            flex-shrink: 0;
+        }
+
+        /* rank 1 = gold, 2 = silver, 3 = bronze */
+        .rank-1 .rank-badge { background: linear-gradient(135deg, #c99a00, #ffcc33); color: #3a0010; }
+        .rank-2 .rank-badge { background: linear-gradient(135deg, #888, #ccc); color: #111; }
+        .rank-3 .rank-badge { background: linear-gradient(135deg, #7c4a1e, #cd7f32); color: #fff; }
+
+        /* medal icon shown for top 3 */
+        .rank-1 .rank-badge::before { content: '🥇'; font-size: clamp(1rem, 2vw, 2.2rem); }
+        .rank-2 .rank-badge::before { content: '🥈'; font-size: clamp(1rem, 2vw, 2.2rem); }
+        .rank-3 .rank-badge::before { content: '🥉'; font-size: clamp(1rem, 2vw, 2.2rem); }
+        .rank-1 .rank-num, .rank-2 .rank-num, .rank-3 .rank-num { display: none; }
+
+        /* team name */
+        .team-name {
+            flex: 1 1 auto;
+            min-width: 0;
+            padding: 0 clamp(8px, 1.2vw, 18px);
+            font-size: clamp(0.95rem, 1.9vw, 2.4rem);
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            color: #fff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            text-transform: uppercase;
+        }
+
+        /* score on right */
+        .team-score {
+            flex: 0 0 clamp(90px, 11vw, 150px);
+            width: clamp(90px, 11vw, 150px);
+            padding: 0 12px;
+            text-align: right;
+            font-family: 'Graduate', sans-serif;
+            font-size: clamp(1.6rem, 3.2vw, 4rem);
+            color: var(--gold);
+            text-shadow: 0 0 8px rgba(255,204,51,0.5);
+            letter-spacing: 1px;
+            white-space: nowrap;
+        }
+
+        /* alternating row backgrounds — set via JS class based on rank, not DOM order */
+        .team-card.row-odd  { background: linear-gradient(90deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.04) 100%); }
+        .team-card.row-even { background: linear-gradient(90deg, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.10) 100%); }
+
+        /* 3-blink animation before the card moves */
+        .team-card.score-blink {
+            animation: scoreBlink 1.5s ease-in-out forwards;
+        }
+
+        @keyframes scoreBlink {
+            0%   { box-shadow: none; }
+            10%  { box-shadow: 0 0 0 3px var(--gold), inset 0 0 0 9999px rgba(255,204,51,0.25); }
+            22%  { box-shadow: none; }
+            33%  { box-shadow: 0 0 0 3px var(--gold), inset 0 0 0 9999px rgba(255,204,51,0.25); }
+            45%  { box-shadow: none; }
+            56%  { box-shadow: 0 0 0 3px var(--gold), inset 0 0 0 9999px rgba(255,204,51,0.25); }
+            68%  { box-shadow: none; }
+            /* blinks done — hold highlighted for the remainder */
+            80%  { box-shadow: 0 0 0 3px var(--gold), inset 0 0 0 9999px rgba(255,204,51,0.20); }
+            100% { box-shadow: 0 0 0 3px var(--gold), inset 0 0 0 9999px rgba(255,204,51,0.20); }
+        }
+
+        /* solid highlight held during the slide move */
+        .team-card.score-highlighted {
+            box-shadow: 0 0 0 3px var(--gold), inset 0 0 0 9999px rgba(255,204,51,0.20);
+        }
+
+        /* fade out highlight after move completes */
+        .team-card.score-fading {
+            transition: top 1.4s cubic-bezier(0.4, 0, 0.2, 1),
+                        transform 1.4s cubic-bezier(0.4, 0, 0.2, 1),
+                        background 0.6s ease,
+                        box-shadow 0.8s ease-out;
+            box-shadow: none;
+        }
+
+        /* suppress top transition during blink phase so card holds position */
+        .team-card.no-transition {
+            transition: none !important;
+        }
+
+        /* new-entry slide-in */
+        .team-card.entering {
+            animation: slideInCard 0.5s cubic-bezier(0.2, 0.8, 0.4, 1) both;
+        }
+
+        @keyframes slideInCard {
+            from { opacity: 0; transform: translateX(-30px); }
+            to   { opacity: 1; transform: translateX(0); }
+        }
+
+        /* ========== LOADING / ERROR ========== */
+        .loading-msg {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: clamp(1rem, 2vw, 2rem);
+            color: rgba(255,204,51,0.6);
+            font-style: italic;
+            letter-spacing: 1px;
+        }
+
+        /* ========== COLUMN HEADER LABELS ========== */
+        .col-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 0 8px;
+            border-bottom: 1.5px solid rgba(255,255,255,0.2);
+            margin-bottom: 8px;
+        }
+
+        .col-header-label {
+            font-size: clamp(0.6rem, 1.1vw, 1.3rem);
+            font-weight: 700;
+            color: rgba(255,255,255,0.5);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        /* "Score" label right-aligns to match the score cells */
+        .col-header-label.score-label {
+            width: clamp(90px, 11vw, 150px);
+            text-align: right;
+            padding-right: 12px;
+            flex-shrink: 0;
+        }
+
+        /* ========== STATUS BAR ========== */
+        .status-bar {
+            display: none; /* hidden; only shown when DEBUG=true */
+            position: fixed;
+            bottom: 6px;
+            right: 10px;
+            font-size: 0.7rem;
+            color: rgba(255,255,255,0.3);
+            font-family: monospace;
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="scale-root" id="scale-root">
+<div class="page">
+
+    <!-- ===== HEADER ===== -->
+    <div class="header">
+        <!-- Left: logo -->
+        <div class="header-left">
+            <img
+                src="https://assets-rst7.rschooltoday.com/rst7files/uploads/sites/743/2026/02/20011730/GRAYBULLDOG-scaled.png"
+                alt="Bulldog"
+                class="header-logo"
+                onerror="this.style.display='none'"
+            >
+        </div>
+
+        <!-- Center: title -->
+        <div class="header-center">
+            <span class="header-title">Bulldog Olympics</span>
+        </div>
+
+        <!-- Right: clock -->
+        <div class="header-right">
+            <div class="header-clock">
+                <div class="clock-time" id="clock-time">--:--</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== LEADERBOARD ===== -->
+    <div class="leaderboard-area">
+
+        <!-- Left Column -->
+        <div class="leaderboard-col" id="col-left">
+            <div class="col-header">
+                <span class="col-header-label">Team</span>
+                <span class="col-header-label score-label">Score</span>
+            </div>
+            <!-- cards injected here -->
+        </div>
+
+        <!-- Right Column -->
+        <div class="leaderboard-col" id="col-right">
+            <div class="col-header">
+                <span class="col-header-label">Team</span>
+                <span class="col-header-label score-label">Score</span>
+            </div>
+            <!-- cards injected here -->
+        </div>
+
+    </div>
+</div><!-- /.page -->
+
+<div class="corner-date" id="clock-date">---</div>
+
+</div><!-- /.scale-root -->
+
+<div class="status-bar" id="status-bar"></div>
+
+<script>
+/* ── 16:9 SCALE-TO-FIT ── */
+(function() {
+    var root = document.getElementById('scale-root');
+    function resize() {
+        var scaleX = window.innerWidth  / 1920;
+        var scaleY = window.innerHeight / 1080;
+        var scale  = Math.min(scaleX, scaleY);
+        root.style.transform = 'scale(' + scale + ')';
+        root.style.left = Math.round((window.innerWidth  - 1920 * scale) / 2) + 'px';
+        root.style.top  = Math.round((window.innerHeight - 1080 * scale) / 2) + 'px';
+        root.style.position = 'absolute';
+    }
+    resize();
+    window.addEventListener('resize', resize);
+})();
+</script>
+
+<script>
+/* =====================================================
+   CONFIGURATION — Change these values for your setup
+   ===================================================== */
+const CONFIG = {
+
+    // Paste your published Google Sheets CSV URL here.
+    // File → Share → Publish to web → Select sheet → CSV → Publish → copy URL
+    SHEET_CSV_URL: 'https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/pub?output=csv',
+
+    // How often to check for score updates (milliseconds). Default: 30 seconds.
+    POLL_INTERVAL: 30000,
+
+    // --- COLUMN MAPPING ---
+    // Which column (0-indexed) holds the team name?
+    TEAM_COLUMN: 0,
+
+    // Which column holds the score/points value?
+    SCORE_COLUMN: 1,
+
+    // Set true if multiple rows per team (Google Form submissions) — scores will be summed.
+    // Set false if one row per team with pre-totaled scores.
+    AGGREGATE_MODE: true,
+
+    // Set true to skip the first row of the CSV (header row with column names).
+    SKIP_HEADER: true,
+
+    // Show debug status bar in bottom-right corner?
+    DEBUG: false,
+
+    // -------------------------------------------------------
+    // DEMO MODE: Set true to use fake data instead of a sheet.
+    // Useful for testing the display before your sheet is ready.
+    DEMO_MODE: true,
+    // -------------------------------------------------------
+};
+
+/* =====================================================
+   DEMO / SAMPLE DATA  (used when DEMO_MODE is true)
+   ===================================================== */
+const DEMO_TEAMS = [
+    { team: 'Red Wolves',     score: 450 },
+    { team: 'Blue Hawks',     score: 380 },
+    { team: 'Gold Falcons',   score: 360 },
+    { team: 'Silver Foxes',   score: 310 },
+    { team: 'Green Gators',   score: 290 },
+    { team: 'Purple Panthers',score: 265 },
+    { team: 'Orange Tigers',  score: 240 },
+    { team: 'White Wolves',   score: 210 },
+    { team: 'Black Bears',    score: 190 },
+    { team: 'Teal Dolphins',  score: 175 },
+];
+
+/* =====================================================
+   CLOCK
+   ===================================================== */
+const elTime = document.getElementById('clock-time');
+const elDate = document.getElementById('clock-date');
+
+function updateClock() {
+    const now = new Date();
+    elTime.textContent = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    elDate.textContent = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+updateClock();
+// Sync to the next minute boundary so the clock never drifts
+setTimeout(function() {
+    updateClock();
+    setInterval(updateClock, 60000);
+}, (60 - new Date().getSeconds()) * 1000);
+
+/* =====================================================
+   LEADERBOARD ENGINE
+   ===================================================== */
+var prevScores = {};   // { teamName: score }
+var initialRender = true;
+
+// Measure the column containers once, caching for layout
+var colLeft  = document.getElementById('col-left');
+var colRight = document.getElementById('col-right');
+
+// ---- CSV FETCH & PARSE ----
+async function fetchScores() {
+    if (CONFIG.DEMO_MODE) {
+        return shuffleDemoScores();
+    }
+
+    try {
+        var url = CONFIG.SHEET_CSV_URL + '&t=' + Date.now(); // bust cache
+        var res = await fetch(url);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        var text = await res.text();
+        return parseCSV(text);
+    } catch(e) {
+        setStatus('Fetch error: ' + e.message);
+        return null;
+    }
+}
+
+function parseCSV(text) {
+    var lines = text.trim().split(/\r?\n/);
+    var start = CONFIG.SKIP_HEADER ? 1 : 0;
+    var totals = {};
+
+    for (var i = start; i < lines.length; i++) {
+        var cols = splitCSVLine(lines[i]);
+        if (cols.length < 2) continue;
+
+        var team  = (cols[CONFIG.TEAM_COLUMN]  || '').trim();
+        var raw   = (cols[CONFIG.SCORE_COLUMN] || '').trim();
+        var pts   = parseFloat(raw.replace(/[^0-9.\-]/g, ''));
+
+        if (!team || isNaN(pts)) continue;
+
+        if (CONFIG.AGGREGATE_MODE) {
+            totals[team] = (totals[team] || 0) + pts;
+        } else {
+            totals[team] = pts;
+        }
+    }
+
+    return Object.keys(totals).map(function(t) {
+        return { team: t, score: totals[t] };
+    });
+}
+
+// Simple CSV line splitter (handles quoted fields with commas)
+function splitCSVLine(line) {
+    var result = [];
+    var cur = '';
+    var inQuotes = false;
+    for (var i = 0; i < line.length; i++) {
+        var c = line[i];
+        if (c === '"') {
+            inQuotes = !inQuotes;
+        } else if (c === ',' && !inQuotes) {
+            result.push(cur);
+            cur = '';
+        } else {
+            cur += c;
+        }
+    }
+    result.push(cur);
+    return result;
+}
+
+// ---- DEMO SHUFFLE ----
+// Randomly bumps one team's score on each refresh so the animation fires
+function shuffleDemoScores() {
+    var teams = DEMO_TEAMS.map(function(t) { return { team: t.team, score: t.score }; });
+    var idx   = Math.floor(Math.random() * teams.length);
+    teams[idx].score += Math.floor(Math.random() * 50) + 10;
+    return teams;
+}
+
+// ---- RENDER LEADERBOARD ----
+function renderLeaderboard(teams) {
+    if (!teams || teams.length === 0) {
+        colLeft.innerHTML  = '<div class="loading-msg">No scores yet…</div>';
+        colRight.innerHTML = '<div class="loading-msg"></div>';
+        return;
+    }
+
+    // Sort descending by score
+    teams.sort(function(a, b) { return b.score - a.score; });
+
+    var half   = Math.ceil(teams.length / 2);
+    var leftTeams  = teams.slice(0, half);
+    var rightTeams = teams.slice(half);
+
+    // Figure out changed scores
+    var changed = {};
+    teams.forEach(function(t) {
+        if (prevScores[t.team] !== undefined && prevScores[t.team] !== t.score) {
+            changed[t.team] = true;
+        }
+    });
+
+    if (initialRender) {
+        // First render: build cards from scratch, no animation
+        buildColumn(colLeft,  leftTeams,  0,    teams.length, false, changed);
+        buildColumn(colRight, rightTeams, half, teams.length, false, changed);
+        initialRender = false;
+    } else {
+        // Subsequent renders: FLIP-animate existing cards, add/remove as needed
+        flipColumn(colLeft,  leftTeams,  0,    teams.length, changed);
+        flipColumn(colRight, rightTeams, half, teams.length, changed);
+    }
+
+    // Store new scores for next comparison
+    prevScores = {};
+    teams.forEach(function(t) { prevScores[t.team] = t.score; });
+
+    setStatus('Updated ' + new Date().toLocaleTimeString());
+}
+
+// ---- BUILD COLUMN (initial) ----
+function buildColumn(col, teams, globalOffset, total, animate, changed) {
+    // Preserve the column header
+    var header = col.querySelector('.col-header');
+
+    // Remove old cards
+    var old = col.querySelectorAll('.team-card');
+    old.forEach(function(c) { c.remove(); });
+
+    var cardH = getCardHeight(col, Math.ceil(total / 2));
+
+    teams.forEach(function(t, idx) {
+        var rank = globalOffset + idx + 1;
+        var card = makeCard(t, rank, idx, cardH, animate);
+        if (changed[t.team]) card.classList.add('score-flash');
+        col.appendChild(card);
+    });
+}
+
+// ---- FLIP COLUMN (subsequent updates) ----
+function flipColumn(col, newTeams, globalOffset, total, changed) {
+    var cardH = getCardHeight(col, Math.ceil(total / 2));
+
+    // Map existing cards by team name
+    var existingCards = {};
+    col.querySelectorAll('.team-card').forEach(function(card) {
+        existingCards[card.dataset.team] = card;
+    });
+
+    // --- FLIP: Step 1 — record current (first) positions ---
+    var firstPositions = {};
+    Object.keys(existingCards).forEach(function(team) {
+        firstPositions[team] = existingCards[team].getBoundingClientRect().top;
+    });
+
+    // --- Update DOM (apply new order and scores) ---
+    newTeams.forEach(function(t, idx) {
+        var rank = globalOffset + idx + 1;
+        var newTop = idx * cardH;
+        var rowClass = (rank % 2 === 1) ? 'row-odd' : 'row-even';
+
+        if (existingCards[t.team]) {
+            var card = existingCards[t.team];
+            var scoreChanged = changed[t.team];
+
+            // Update rank badge, row color, score text immediately
+            card.dataset.rank = rank;
+            card.querySelector('.rank-num').textContent = rank;
+            if (scoreChanged) {
+                card.querySelector('.team-score').textContent = formatScore(t.score);
+            }
+
+            if (scoreChanged) {
+                // --- Sequence: blink 3× → hold highlight → slide → fade out ---
+                var BLINK_MS = 1500;  // duration of the CSS blink animation
+                var HOLD_MS  = 200;   // brief hold before slide begins
+
+                // 1. Lock position (no transition), apply row color, start blink
+                card.className = 'team-card rank-' + rank + ' ' + rowClass + ' no-transition score-blink';
+                card.style.setProperty('--card-h', cardH + 'px');
+                // Keep old top during blink — don't set newTop yet
+
+                // 2. After blink: remove no-transition, apply highlighted, then set newTop to trigger slide
+                setTimeout(function(c, top) {
+                    c.classList.remove('score-blink', 'no-transition');
+                    c.classList.add('score-highlighted');
+
+                    // Force reflow so transition fires properly
+                    void c.offsetWidth;
+
+                    c.style.setProperty('--card-top', top);
+                }, BLINK_MS + HOLD_MS, card, newTop);
+
+                // 3. After slide completes: swap to fading class to smoothly drop the glow
+                setTimeout(function(c) {
+                    c.classList.remove('score-highlighted');
+                    c.classList.add('score-fading');
+                    setTimeout(function() { c.classList.remove('score-fading'); }, 900);
+                }, BLINK_MS + HOLD_MS + 1400, card);
+
+            } else {
+                // Unchanged score — just slide immediately to new position
+                card.className = 'team-card rank-' + rank + ' ' + rowClass;
+                card.style.setProperty('--card-top', newTop);
+                card.style.setProperty('--card-h', cardH + 'px');
+            }
+
+            delete existingCards[t.team];
+        } else {
+            // New team — create card
+            var newCard = makeCard(t, rank, idx, cardH, true);
+            col.appendChild(newCard);
+        }
+    });
+
+    // Remove cards for teams no longer present
+    Object.values(existingCards).forEach(function(card) { card.remove(); });
+}
+
+// ---- MAKE CARD ----
+function makeCard(t, rank, colIdx, cardH, animate) {
+    var card = document.createElement('div');
+    var rowClass = (rank % 2 === 1) ? 'row-odd' : 'row-even';
+    card.className = 'team-card rank-' + rank + ' ' + rowClass + (animate ? ' entering' : '');
+    card.dataset.team = t.team;
+    card.dataset.rank = rank;
+    card.style.setProperty('--card-top', (colIdx * cardH));
+    card.style.setProperty('--card-h', cardH + 'px');
+
+    card.innerHTML =
+        '<div class="rank-badge"><span class="rank-num">' + rank + '</span></div>' +
+        '<div class="team-name">' + escapeHTML(t.team) + '</div>' +
+        '<div class="team-score">' + formatScore(t.score) + '</div>';
+
+    return card;
+}
+
+// ---- HELPERS ----
+function getCardHeight(col, numRows) {
+    // Available height = column height minus the col-header element
+    var colRect    = col.getBoundingClientRect();
+    var headerRect = col.querySelector('.col-header').getBoundingClientRect();
+    var available  = colRect.height - headerRect.height - 16; // 16px top padding
+    if (numRows < 1) numRows = 1;
+    var h = Math.floor(available / numRows);
+    return Math.max(h, 30);
+}
+
+function formatScore(n) {
+    return Number(n).toLocaleString('en-US');
+}
+
+function escapeHTML(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function setStatus(msg) {
+    if (CONFIG.DEBUG) {
+        var el = document.getElementById('status-bar');
+        el.style.display = 'block';
+        el.textContent = msg;
+    }
+}
+
+// ---- POLL LOOP ----
+async function poll() {
+    var teams = await fetchScores();
+    if (teams) renderLeaderboard(teams);
+}
+
+// Initial load then poll
+poll();
+setInterval(poll, CONFIG.POLL_INTERVAL);
+
+// Reload page every 6 hours (BrightSign memory management)
+setInterval(function() { location.reload(); }, 21600000);
+
+// Reload on visibility restore (BrightSign wakeup after scheduled off)
+var reloadLock = false;
+document.addEventListener('visibilitychange', function() {
+    if (!document.hidden && !reloadLock) {
+        reloadLock = true;
+        location.reload();
+    }
+});
+</script>
+
+</body>
+</html>
