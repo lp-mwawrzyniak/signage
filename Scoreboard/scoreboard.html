@@ -663,7 +663,7 @@ function buildColumn(col, teams, globalOffset, total, animate, changed) {
     var old = col.querySelectorAll('.team-card');
     old.forEach(function(c) { c.remove(); });
 
-    var cardH = getCardHeight(col, Math.ceil(total / 2));
+    var cardH = getCardHeight(col, teams.length);
 
     teams.forEach(function(t, idx) {
         var rank = globalOffset + idx + 1;
@@ -675,7 +675,7 @@ function buildColumn(col, teams, globalOffset, total, animate, changed) {
 
 // ---- FLIP COLUMN (subsequent updates) ----
 function flipColumn(col, newTeams, globalOffset, total, changed) {
-    var cardH = getCardHeight(col, Math.ceil(total / 2));
+    var cardH = getCardHeight(col, newTeams.length);
 
     // Map existing cards by team name
     var existingCards = {};
