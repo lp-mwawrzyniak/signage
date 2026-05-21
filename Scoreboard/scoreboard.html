@@ -381,8 +381,9 @@
    CONFIG
    ============================================================= */
 var CONFIG = {
-    // gviz endpoint reads live sheet data with minimal caching
-    SHEET_CSV_URL:  'https://docs.google.com/spreadsheets/d/1LEs7QTzWphzvsPRaW7aEqKI591VQXPWePxqDDal57d8/gviz/tq?tqx=out:csv&gid=817383593',
+    // Published CSV URL — this is the correct endpoint Google allows cross-origin fetches from.
+    // gviz/tq blocks cross-origin requests (CORS error). pub?output=csv does not.
+    SHEET_CSV_URL:  'https://docs.google.com/spreadsheets/d/e/2PACX-1vS-mlEeCBZQ-Pk3n2vvBqyO7a3fN8Z0GP3zla1-sliSrKcwW_w04GNgfgcn0EulTZo4mohs2tewwTga/pub?gid=817383593&single=true&output=csv',
     POLL_INTERVAL:  15000,   // 15 seconds
     TEAM_COLUMN:    0,
     SCORE_COLUMN:   22,
