@@ -382,7 +382,8 @@ var CONFIG = {
     SKIP_HEADER:    true,
     LEFT_COUNT:     5,
     CARD_GAP:       5,
-    DEBUG:          false,    // set false once confirmed working
+    DEBUG:          true,    // set false once confirmed working
+    FORCE_ANIMATE:  true,    // forces animation every poll so you can verify it — set false after confirming
     DEMO_MODE:      false
 };
 
@@ -566,11 +567,20 @@ function renderLeaderboard(teams) {
 
     // Detect score changes
     var changed = {};
+    var changedLog = [];
     teams.forEach(function (t) {
         if (prevScores[t.team] !== undefined && prevScores[t.team] !== t.score) {
             changed[t.team] = true;
+            changedLog.push(t.team + ': ' + prevScores[t.team] + '→' + t.score);
         }
     });
+
+    // FORCE_ANIMATE: mark every team as changed on every poll so you can
+    // verify the animation fires. Set false once confirmed working.
+    if (CONFIG.FORCE_ANIMATE && !initialRender) {
+        teams.forEach(function (t) { changed[t.team] = true; });
+        changedLog.push('(FORCE_ANIMATE on)');
+    }
 
     if (initialRender) {
         buildColumn(cardsLeft,  leftTeams,  0,         false, changed);
@@ -583,7 +593,12 @@ function renderLeaderboard(teams) {
 
     prevScores = {};
     teams.forEach(function (t) { prevScores[t.team] = t.score; });
-    setStatus('Updated ' + new Date().toLocaleTimeString());
+
+    if (changedLog.length) {
+        setStatus('CHANGED: ' + changedLog.join(', '));
+    } else {
+        setStatus('No change ' + new Date().toLocaleTimeString());
+    }
 }
 
 /* =============================================================
@@ -650,43 +665,51 @@ function flipColumn(wrap, newTeams, globalOffset, changed) {
 
 /* =============================================================
    BLINK ANIMATION  — 3 blinks → hold → slide → restore
-   Uses direct background style so overflow:hidden never clips it.
+   Uses direct background style (overflow:hidden safe).
    ============================================================= */
 function animateBlink(card, rank, rowCls, cardH, newTop) {
-    var BLINK_ON  = 220;   // ms — highlight visible
-    var BLINK_OFF = 180;   // ms — highlight off between blinks
-    var HOLD_MS   = 350;   // ms — stay lit before sliding
+    var BLINK_ON  = 350;   // ms — highlight visible
+    var BLINK_OFF = 250;   // ms — dark between blinks
+    var HOLD_MS   = 400;   // ms — stay lit before sliding
     var SLIDE_MS  = 1400;  // ms — must match CSS transition duration
 
-    var GOLD_BG = 'linear-gradient(90deg, rgba(255,204,51,0.40) 0%, rgba(255,204,51,0.22) 100%)';
-    var OFF_BG  = '';      // empty = falls back to row-odd/row-even CSS class
+    // Very bright gold — unmissable even on a TV across the room
+    var GOLD_BG = 'linear-gradient(90deg, rgba(255,204,51,0.75) 0%, rgba(255,185,0,0.55) 100%)';
+    var OFF_BG  = '';  // falls back to row-odd/row-even CSS class
 
-    // Freeze position and clear any previous inline background
+    // Freeze position, clear any leftover inline background
     card.className    = 'team-card rank-' + rank + ' ' + rowCls + ' hold-pos';
     card.style.height = cardH + 'px';
     card.style.background = OFF_BG;
 
-    // Sequence: on → off → on → off → on → hold → slide → restore
-    setTimeout(function() { card.style.background = GOLD_BG;  }, 0);
-    setTimeout(function() { card.style.background = OFF_BG;   }, BLINK_ON);
-    setTimeout(function() { card.style.background = GOLD_BG;  }, BLINK_ON + BLINK_OFF);
-    setTimeout(function() { card.style.background = OFF_BG;   }, BLINK_ON * 2 + BLINK_OFF);
-    setTimeout(function() { card.style.background = GOLD_BG;  }, BLINK_ON * 2 + BLINK_OFF * 2);
-    // 3rd blink stays on through the hold period — no off scheduled
-
-    var slideAt = BLINK_ON * 3 + BLINK_OFF * 2 + HOLD_MS;
-
+    // Pre-calculated absolute timestamps for each flash step
+    var t = 0;
+    // Blink 1
+    setTimeout(function() { card.style.background = GOLD_BG; }, t);
+    t += BLINK_ON;
+    setTimeout(function() { card.style.background = OFF_BG;  }, t);
+    t += BLINK_OFF;
+    // Blink 2
+    setTimeout(function() { card.style.background = GOLD_BG; }, t);
+    t += BLINK_ON;
+    setTimeout(function() { card.style.background = OFF_BG;  }, t);
+    t += BLINK_OFF;
+    // Blink 3 — stays on, no off scheduled
+    setTimeout(function() { card.style.background = GOLD_BG; }, t);
+    t += BLINK_ON;
+    // Hold, then slide
+    t += HOLD_MS;
+    var slideAt = t;
     setTimeout(function() {
-        // Re-enable top transition, then set new position
         card.classList.remove('hold-pos');
-        void card.offsetWidth;               // force reflow so transition fires
+        void card.offsetWidth;          // force reflow so CSS transition fires
         card.style.top = newTop + 'px';
     }, slideAt);
 
     // After slide completes, restore normal row background
     setTimeout(function() {
         card.style.background = OFF_BG;
-    }, slideAt + SLIDE_MS + 150);
+    }, slideAt + SLIDE_MS + 200);
 }
 
 /* =============================================================
