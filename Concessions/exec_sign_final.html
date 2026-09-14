@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Bulldog Signage — Executive Function Clock</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Graduate&family=Oswald:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /*
+    Fluid 16:9 layout — everything below the header sized in vw/vh so it
+    holds its proportions at any 16:9 resolution (1080p, 4K, etc), same
+    approach as side_signage.html. Header markup/CSS copied verbatim
+    from that file so both screens carry identical branding.
+  */
+  :root{
+    --maroon:#7a0019;
+    --maroon-dark:#4d0010;
+    --gold:#ffcc33;
+    --white:#ffffff;
+    --border: 2.2px solid white;
+    --panel-w: 20vw; /* was 29.1667vw (560/1920) — trying a narrower rail */
+  }
+  *, *::before, *::after{ box-sizing:border-box; }
+  html,body{
+    margin:0; padding:0;
+    width:100vw; height:100vh;
+    overflow:hidden;
+    background:#000;
+    font-family:'Oswald', sans-serif;
+    color:var(--white);
+  }
+
+  /* ===================== LAYOUT (16:9, fluid) ===================== */
+  .stage{
+    width:100vw; height:100vh;
+    display:grid;
+    grid-template-rows:10vh 1fr;
+  }
+
+  /* ===================== HEADER — copied from side_signage.html ===================== */
+  .zone-header{
+    display:grid;
+    grid-template-columns:1fr auto 1fr;
+    align-items:center;
+    border-bottom:var(--border);
+    padding:0 2vw;
+    background:var(--maroon);
+    contain:layout paint;
+  }
+  .header-left{ display:flex; align-items:center; gap:1.15vw; justify-content:flex-start; }
+  .header-center{ display:flex; align-items:center; justify-content:center; }
+  .header-right{ display:flex; align-items:center; justify-content:flex-end; }
+  .header-logo{
+    height:7.78vh; width:auto; object-fit:contain; flex-shrink:0;
+    border-radius:0.63vw;
+    filter:drop-shadow(0.16vw 0.26vw 0.31vw rgba(0,0,0,0.5));
+  }
+  .zone-header h1{
+    margin:0;
+    font-size:4.1vw;
+    white-space:nowrap;
+    text-transform:uppercase;
+    letter-spacing:0.1vw;
+    font-weight:normal;
+    color:var(--gold);
+    font-family:'Graduate', sans-serif;
+    -webkit-text-stroke:0.08vw #fff;
+    text-shadow:0.36vw 0.36vw 0.63vw rgba(0,0,0,0.85);
+  }
+  #time-display{
+    font-size:3.23vw;
+    font-weight:700;
+    color:var(--gold);
+    line-height:1;
+    white-space:nowrap;
+  }
+
+  /* ===================== BODY ROW ===================== */
+  .body-row{
+    width:100%; height:100%;
+    display:flex;
+    flex-direction:row;
+    overflow:hidden;
+  }
+
+  .side-panel{
+    width:var(--panel-w);
+    flex-shrink:0;
+    height:100%;
+    background:linear-gradient(180deg, var(--maroon) 0%, var(--maroon-dark) 100%);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:2.6vh 0 2.2vh 0;
+    position:relative;
+    border-right:0.31vw solid var(--gold);
+    min-height:0;
+    contain:layout paint;
+  }
+
+  .slide-panel{
+    flex:1;
+    height:100%;
+    background:#111;
+    position:relative;
+    contain:strict;
+  }
+  .slide-panel img, .slide-panel iframe{
+    width:100%; height:100%;
+    border:0; display:block;
+    object-fit:contain;
+  }
+  .slide-panel .slide-placeholder{
+    width:100%; height:100%;
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    gap:1.67vh;
+    background:
+      repeating-linear-gradient(45deg, #161616 0 2.08vw, #1c1c1c 2.08vw 4.17vw);
+  }
+  .slide-placeholder .ph-title{
+    font-family:'Graduate', cursive;
+    font-size:1.77vw; color:var(--gold); letter-spacing:1px;
+  }
+  .slide-placeholder .ph-sub{
+    font-size:0.99vw; color:#bbb; max-width:38vw; text-align:center; line-height:1.5;
+  }
+  .slide-placeholder code{
+    background:#000; color:var(--gold); padding:2px 8px; border-radius:4px; font-size:0.83vw;
+  }
+
+  /* ===================== CLOCK SECTION ===================== */
+  .clock-section{
+    display:flex; flex-direction:column; align-items:center;
+    contain:layout paint;
+  }
+
+  #timerSvg{ width:17vw; height:17vw; display:block; }
+
+  /* animate the wedge purely via stroke-dashoffset — no per-tick path recompute */
+  #wedge{
+    transition:stroke-dashoffset 1s linear;
+    will-change:stroke-dashoffset;
+  }
+
+  .countdown-readout{
+    margin-top:1.3vh;
+    font-family:'Oswald', sans-serif;
+    font-weight:700;
+    font-size:2.3vw;
+    letter-spacing:0.06vw;
+    color:var(--white);
+    text-shadow:0 0 18px rgba(255,204,51,.35);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ===================== FORECAST SECTION (vertical stack, expands down) ===================== */
+  .forecast-section{
+    margin-top:2.5vh;
+    width:100%;
+    padding:0 0.9vw;
+    flex:1;
+    min-height:0;
+    display:flex;
+    flex-direction:column;
+  }
+  .forecast-title{
+    font-size:0.85vw; letter-spacing:0.16vw; color:var(--gold);
+    text-transform:uppercase; font-weight:600;
+    text-align:center; margin-bottom:1vh;
+    opacity:.9;
+    flex-shrink:0;
+  }
+  .forecast-row{
+    display:flex; flex-direction:column; gap:0.9vh;
+    flex:1;
+    min-height:0;
+  }
+  .fday{
+    flex:1;
+    background:rgba(255,255,255,.06);
+    border:1px solid rgba(255,204,51,.25);
+    border-radius:0.7vw;
+    padding:0 1vw;
+    display:flex; flex-direction:row; align-items:center; justify-content:space-between;
+    gap:0.6vw;
+  }
+  .fday .fname{
+    font-size:1.05vw; letter-spacing:0.05vw; font-weight:600; color:var(--gold);
+    text-transform:uppercase;
+    flex:1;
+  }
+  .fday .ficon{ font-size:2.1vw; line-height:1; flex-shrink:0; }
+  .fday .ftemps{
+    display:flex; flex-direction:column; align-items:flex-end; flex-shrink:0;
+  }
+  .fday .fhi{ font-size:1.5vw; font-weight:600; color:var(--white); line-height:1.2; }
+  .fday .flo{ font-size:1.1vw; font-weight:300; color:#d9b8b8; line-height:1.2; }
+
+  .conn-dot{
+    position:absolute; bottom:0.74vh; right:0.73vw;
+    width:0.47vw; height:0.47vw; border-radius:50%;
+    background:#4caf50; box-shadow:0 0 6px #4caf50;
+    opacity:.85;
+  }
+  .conn-dot.stale{ background:#c62828; box-shadow:0 0 6px #c62828; }
+
+  /* ===================== HIDDEN T-KEY TEST TOOLBAR ===================== */
+  .debug-toolbar{
+    position:fixed; top:16px; left:16px;
+    background:rgba(0,0,0,.92);
+    border:2px solid var(--gold);
+    border-radius:8px;
+    padding:14px 16px;
+    font-family:'Oswald', sans-serif;
+    font-size:14px;
+    color:#fff;
+    z-index:9999;
+    width:360px;
+  }
+  .debug-toolbar.hidden{ display:none; }
+  .debug-toolbar .debug-title{
+    color:var(--gold); font-weight:600; letter-spacing:1px;
+    margin-bottom:10px; font-size:13px; text-transform:uppercase;
+  }
+  .debug-toolbar .debug-row{
+    display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px;
+    align-items:center;
+  }
+  .debug-toolbar button{
+    background:#2a2a2a; color:#fff; border:1px solid #555;
+    border-radius:4px; padding:6px 9px; font-size:12px; cursor:pointer;
+    font-family:'Oswald', sans-serif;
+  }
+  .debug-toolbar button:hover{ background:var(--maroon); border-color:var(--gold); }
+  .debug-toolbar input{
+    background:#111; color:#fff; border:1px solid #555; border-radius:4px;
+    padding:6px 8px; font-size:12px; width:88px;
+    font-family:'Oswald', sans-serif;
+  }
+  .debug-toolbar #debugStatus{
+    font-size:12px; color:#9ad19a; margin-top:2px;
+  }
+  .debug-toolbar #debugStatus.live{ color:#9ad19a; }
+  .debug-toolbar #debugStatus.sim{ color:var(--gold); }
+</style>
+</head>
+<body>
+
+<div class="stage">
+
+  <!-- ================= HEADER (exact match: side_signage.html) ================= -->
+  <div class="zone-header">
+    <div class="header-left">
+      <img src="https://assets-rst7.rschooltoday.com/rst7files/uploads/sites/743/2026/02/27022515/bulldog-30gray-maroon-collar-scaled.png"
+           alt="Bulldog" class="header-logo"
+           decoding="async" loading="eager"
+           onerror="this.style.display='none'">
+    </div>
+    <div class="header-center">
+      <h1>Lester Prairie Schools</h1>
+    </div>
+    <div class="header-right">
+      <div id="time-display">--:--</div>
+    </div>
+  </div>
+
+  <div class="body-row">
+
+    <!-- ================= LEFT PANEL: CLOCK + FORECAST ================= -->
+    <div class="side-panel">
+
+      <div class="clock-section">
+
+        <svg id="timerSvg" viewBox="0 0 420 420">
+          <circle cx="210" cy="210" r="196" fill="rgba(0,0,0,.25)" stroke="rgba(255,255,255,.15)" stroke-width="2"/>
+          <!-- wedge: fixed geometry, animated via stroke-dashoffset only (no per-tick path recompute) -->
+          <circle id="wedge" cx="210" cy="210" r="98" fill="none" stroke="#ffcc33" stroke-width="196"
+                  stroke-dasharray="615.752" stroke-dashoffset="0" transform="rotate(-90 210 210)" opacity="0.85"></circle>
+          <circle cx="210" cy="210" r="196" fill="none" stroke="var(--gold)" stroke-width="6"/>
+          <!-- minute-scale ticks -->
+          <g id="ticks"></g>
+          <circle cx="210" cy="210" r="8" fill="#ffffff"/>
+        </svg>
+
+        <div class="countdown-readout" id="countdownReadout">00:00:00</div>
+      </div>
+
+      <div class="forecast-section">
+        <div class="forecast-title">5-Day Forecast</div>
+        <div class="forecast-row" id="forecastRow">
+          <!-- populated by JS -->
+        </div>
+      </div>
+
+      <div class="conn-dot" id="connDot" title="weather link status"></div>
+    </div>
+
+    <!-- ================= RIGHT PANEL: GOOGLE SLIDE ================= -->
+    <div class="slide-panel" id="slidePanel">
+      <div class="slide-placeholder" hidden>
+        <div class="ph-title">Google Slide Goes Here</div>
+        <div class="ph-sub">
+          Configure <code>SLIDE_FILE_ID</code> / <code>SLIDE_ID</code> near the bottom of this file.
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /body-row -->
+
+</div><!-- /stage -->
+
+<!-- ================= HIDDEN TIME-OVERRIDE TEST TOOLBAR (press T) ================= -->
+<div class="debug-toolbar hidden" id="debugToolbar">
+  <div class="debug-title">Time Override — press T to close</div>
+  <div class="debug-row">
+    <button data-preset="7:15">7:15 (idle)</button>
+    <button data-preset="7:30">7:30 (start)</button>
+    <button data-preset="7:45">7:45 (mid)</button>
+    <button data-preset="8:02">8:02 (near end)</button>
+    <button data-preset="8:03">8:03 (bell)</button>
+    <button data-preset="8:30">8:30 (empty)</button>
+    <button data-preset="9:00">9:00 (refill)</button>
+    <button data-preset="8:10">8:10 (after)</button>
+  </div>
+  <div class="debug-row">
+    <input type="text" id="debugTimeInput" placeholder="HH:MM (24h)">
+    <button id="debugSetBtn">Set</button>
+    <button id="debugResetBtn">Reset to Live</button>
+  </div>
+  <div class="debug-row live" id="debugStatus">Live: real time</div>
+</div>
+
+
+<script>
+/* =====================================================================
+   CONFIG
+   ===================================================================== */
+var TARGET_HOUR   = 8;     // 24hr clock — bell / target time
+var TARGET_MINUTE = 3;
+
+var ACTIVE_START_HOUR   = 7;   // clock is idle before this and becomes
+var ACTIVE_START_MINUTE = 30;  // a live 33:00 countdown starting here
+
+var REFILL_HOUR   = 9;   // circle stays empty after the bell until this time,
+var REFILL_MINUTE = 0;   // then it refills and holds full until next 7:30
+
+// Lester Prairie, MN (matches side_signage.html's coordinates)
+var WEATHER_LAT = 44.88757865052159;
+var WEATHER_LON = -94.04388727392079;
+var WEATHER_TZ  = "America/Chicago";
+
+// Pulls ONE exact slide as a static image, rather than embedding the
+// whole deck — this is what lets us pin a specific slide regardless of
+// its position in the presentation. Requires the file's sharing to be
+// set to "Anyone with the link can view."
+//   FILE ID  = the long ID right after /presentation/d/ in your normal
+//              share/edit link.
+//   SLIDE ID = the id.XXXXXXXX value after ?slide= in the link you get
+//              from right-clicking a slide thumbnail > "Copy link to
+//              this slide" (drop the "id." prefix).
+var SLIDE_FILE_ID  = "1sVzmC_JM28B-52toBP0z5JDXT8P2_nieGHzbRUyTUgc";
+var SLIDE_ID       = "g37caf1dc3f0_0_20";
+var SLIDE_IMAGE_URL = "https://docs.google.com/presentation/d/" + SLIDE_FILE_ID +
+  "/export/png?id=" + SLIDE_FILE_ID + "&pageid=" + SLIDE_ID;
+
+var SLIDE_REFRESH_MS = 10 * 60 * 1000; // re-pull the image every 10 min to catch edits
+
+var WEATHER_REFRESH_MS = 20 * 60 * 1000; // 20 min, self-scheduling
+var RELOAD_HOUR = 3; // smart daily reload window (3 AM)
+
+/* =====================================================================
+   SLIDE IMAGE — pulls the exact slide as a PNG, self-refreshing so
+   edits to the deck eventually show up without a full page reload.
+   ===================================================================== */
+(function initSlide(){
+  var panel = document.getElementById('slidePanel');
+  var placeholder = panel.querySelector('.slide-placeholder');
+  var imgEl = document.createElement('img');
+  imgEl.id = 'slideImg';
+  imgEl.alt = '';
+  imgEl.decoding = 'async';
+  panel.insertBefore(imgEl, placeholder);
+
+  var hasLoadedOnce = false;
+  var refreshTimer = 0;
+
+  function showPlaceholder(show, message) {
+    if (message) {
+      placeholder.innerHTML =
+        '<div class="ph-title">Slide image failed to load</div>' +
+        '<div class="ph-sub">Check that the file is shared as &ldquo;Anyone with the link can view,&rdquo; ' +
+        'and that SLIDE_FILE_ID / SLIDE_ID are correct.</div>';
+    }
+    placeholder.hidden = !show;
+  }
+
+  function loadSlide() {
+    // load into an off-screen buffer first, only swap .src once it succeeds —
+    // avoids a flash to a broken-image icon and lets the browser garbage
+    // collect the previous image cleanly instead of stacking dead nodes
+    var bufferImg = new Image();
+    bufferImg.onload = function() {
+      imgEl.src = bufferImg.src;
+      hasLoadedOnce = true;
+      showPlaceholder(false);
+      refreshTimer = setTimeout(loadSlide, SLIDE_REFRESH_MS);
+    };
+    bufferImg.onerror = function() {
+      // only show the error placeholder if nothing has ever loaded
+      // successfully — a transient failure shouldn't blank out a slide
+      // that's already showing correctly. Because imgEl stays in the DOM
+      // the whole time (never rebuilt via innerHTML), a later successful
+      // retry can still recover and display normally.
+      if (!hasLoadedOnce) {
+        showPlaceholder(true, 'error');
+      }
+      refreshTimer = setTimeout(loadSlide, SLIDE_REFRESH_MS);
+    };
+    bufferImg.src = SLIDE_IMAGE_URL + "&_=" + Date.now(); // cache-bust to catch deck edits
+  }
+
+  showPlaceholder(true);
+  loadSlide();
+
+  window.addEventListener('pagehide', function(){
+    if (refreshTimer) clearTimeout(refreshTimer);
+  }, {once:true});
+})();
+
+/* =====================================================================
+   CLOCK FACE TICKS — a 0→33 minute scale (not a 12-hour clock face).
+   Position for value m (minutes) sits at the same angle the wedge's
+   edge occupies when m minutes remain, so the numbers read directly
+   as "minutes left" as the gold fill retreats past them.
+   ===================================================================== */
+var TIMER_WINDOW_MINUTES = 33;
+
+function angleForMinuteMark(m) {
+  return -Math.PI / 2 + (m / TIMER_WINDOW_MINUTES) * 2 * Math.PI;
+}
+
+(function drawTicks(){
+  var g = document.getElementById('ticks');
+  var cx = 210, cy = 210;
+  var rMajorOuter = 190, rMajorInner = 168, rMinorOuter = 190, rMinorInner = 180, rNum = 148;
+  var frag = document.createDocumentFragment();
+
+  // minor ticks: every 1 minute
+  for (var m = 0; m < TIMER_WINDOW_MINUTES; m++) {
+    if (m % 5 === 0) continue; // major ticks drawn separately, below
+    var a = angleForMinuteMark(m);
+    var x1 = cx + rMinorOuter * Math.cos(a), y1 = cy + rMinorOuter * Math.sin(a);
+    var x2 = cx + rMinorInner * Math.cos(a), y2 = cy + rMinorInner * Math.sin(a);
+    var minorLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    minorLine.setAttribute('x1', x1); minorLine.setAttribute('y1', y1);
+    minorLine.setAttribute('x2', x2); minorLine.setAttribute('y2', y2);
+    minorLine.setAttribute('stroke', 'rgba(255,255,255,.3)');
+    minorLine.setAttribute('stroke-width', '1.5');
+    frag.appendChild(minorLine);
+  }
+
+  // major ticks + numbers: every 5 minutes, 0 through 30 (33 shares 0's position)
+  for (var mm = 0; mm < TIMER_WINDOW_MINUTES; mm += 5) {
+    var angle = angleForMinuteMark(mm);
+    var mx1 = cx + rMajorOuter * Math.cos(angle), my1 = cy + rMajorOuter * Math.sin(angle);
+    var mx2 = cx + rMajorInner * Math.cos(angle), my2 = cy + rMajorInner * Math.sin(angle);
+    var line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', mx1); line.setAttribute('y1', my1);
+    line.setAttribute('x2', mx2); line.setAttribute('y2', my2);
+    line.setAttribute('stroke', 'rgba(255,255,255,.7)');
+    line.setAttribute('stroke-width', '3');
+    frag.appendChild(line);
+
+    var nx = cx + rNum * Math.cos(angle);
+    var ny = cy + rNum * Math.sin(angle);
+    var text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    text.setAttribute('x', nx); text.setAttribute('y', ny + 6);
+    text.setAttribute('text-anchor', 'middle');
+    text.setAttribute('font-family', 'Oswald, sans-serif');
+    text.setAttribute('font-size', '20');
+    text.setAttribute('fill', 'rgba(255,255,255,.85)');
+    text.textContent = mm;
+    frag.appendChild(text);
+  }
+  g.appendChild(frag);
+})();
+
+/* =====================================================================
+   TIME OVERRIDE (hidden T-key test toolbar)
+   Lets you simulate any time of day to preview the clock's active
+   window without waiting for real 7:30–8:03 AM. Mirrors the T-key
+   test toolbar pattern used in classroom_signage.html.
+   ===================================================================== */
+var timeOverride = null; // { base: Date, setAt: <real Date.now() ms> } or null = live
+
+function getNow() {
+  if (timeOverride) {
+    return new Date(timeOverride.base.getTime() + (Date.now() - timeOverride.setAt));
+  }
+  return new Date();
+}
+
+function setTimeOverride(hh, mm) {
+  var real = new Date();
+  var base = new Date(real.getFullYear(), real.getMonth(), real.getDate(), hh, mm, 0, 0);
+  timeOverride = { base: base, setAt: Date.now() };
+  refreshDebugStatus();
+}
+
+function clearTimeOverride() {
+  timeOverride = null;
+  refreshDebugStatus();
+}
+
+function refreshDebugStatus() {
+  var el = document.getElementById('debugStatus');
+  if (!el) return;
+  if (timeOverride) {
+    el.textContent = 'SIMULATED — running from ' + formatClockTime(timeOverride.base);
+    el.className = 'debug-row sim';
+  } else {
+    el.textContent = 'Live: real time';
+    el.className = 'debug-row live';
+  }
+}
+
+(function initDebugToolbar(){
+  var toolbar = document.getElementById('debugToolbar');
+
+  document.addEventListener('keydown', function(e){
+    if (e.key === 't' || e.key === 'T') {
+      toolbar.classList.toggle('hidden');
+    }
+  });
+
+  var presetBtns = toolbar.querySelectorAll('button[data-preset]');
+  for (var i = 0; i < presetBtns.length; i++) {
+    presetBtns[i].addEventListener('click', function(){
+      var parts = this.getAttribute('data-preset').split(':');
+      setTimeOverride(parseInt(parts[0], 10), parseInt(parts[1], 10));
+    });
+  }
+
+  document.getElementById('debugSetBtn').addEventListener('click', function(){
+    var val = document.getElementById('debugTimeInput').value.trim();
+    var m = val.match(/^(\d{1,2}):(\d{2})$/);
+    if (!m) { alert('Enter time as HH:MM in 24-hour format, e.g. 07:45'); return; }
+    setTimeOverride(parseInt(m[1], 10), parseInt(m[2], 10));
+  });
+
+  document.getElementById('debugResetBtn').addEventListener('click', clearTimeOverride);
+})();
+
+/* =====================================================================
+   EXECUTIVE FUNCTION CLOCK — classic Time-Timer visual: a full gold disc
+   at 7:30 AM that shrinks clockwise from 12 o'clock down to nothing
+   exactly at 8:03 AM (a fixed 33-minute window).
+   ===================================================================== */
+function getTodayAt(base, hour, minute) {
+  return new Date(base.getFullYear(), base.getMonth(), base.getDate(), hour, minute, 0, 0);
+}
+
+// fraction: 1 = full disc (33:00 left), 0 = empty (bell time)
+var WEDGE_CIRCUMFERENCE = 2 * Math.PI * 98; // r=98, matches the #wedge circle
+function updateWedge(fraction) {
+  fraction = Math.max(0, Math.min(1, fraction));
+  document.getElementById('wedge').style.strokeDashoffset =
+    (WEDGE_CIRCUMFERENCE * (1 - fraction)).toFixed(2);
+}
+
+function formatHMS(ms) {
+  if (ms < 0) ms = 0;
+  var totalSec = Math.floor(ms / 1000);
+  var h = Math.floor(totalSec / 3600);
+  var m = Math.floor((totalSec % 3600) / 60);
+  var s = totalSec % 60;
+  function pad(n){ return n < 10 ? '0' + n : '' + n; }
+  return pad(h) + ':' + pad(m) + ':' + pad(s);
+}
+
+// Matches side_signage.html's header clock style: e.g. "8:15 AM"
+function formatClockTime(t) {
+  var h = t.getHours();
+  var m = t.getMinutes();
+  var ampm = h >= 12 ? 'PM' : 'AM';
+  var h12 = h % 12; if (h12 === 0) h12 = 12;
+  return h12 + ':' + (m < 10 ? '0' + m : m) + ' ' + ampm;
+}
+
+var readoutEl = document.getElementById('countdownReadout');
+var elTime    = document.getElementById('time-display');
+
+// avoid writing textContent (and the resulting DOM reflow/paint) on ticks
+// where the displayed string hasn't actually changed
+var lastReadoutStr = "";
+var lastTimeStr = "";
+
+function tickClock() {
+  var now = getNow();
+  var start  = getTodayAt(now, ACTIVE_START_HOUR, ACTIVE_START_MINUTE);
+  var target = getTodayAt(now, TARGET_HOUR, TARGET_MINUTE);
+  var refill = getTodayAt(now, REFILL_HOUR, REFILL_MINUTE);
+  var windowMs = target.getTime() - start.getTime(); // fixed 33:00
+
+  var remaining, fraction;
+  if (now >= start && now <= target) {
+    // 7:30–8:03: live countdown, shrinking from full to empty
+    remaining = target.getTime() - now.getTime();
+    fraction = remaining / windowMs;
+  } else if (now > target && now < refill) {
+    // 8:03–9:00: stays empty
+    remaining = 0;
+    fraction = 0;
+  } else {
+    // 9:00 AM through the next 7:30 AM: refilled, holding at 33:00
+    remaining = windowMs;
+    fraction = 1;
+  }
+
+  updateWedge(fraction);
+
+  var newReadoutStr = formatHMS(Math.max(remaining, 0));
+  if (newReadoutStr !== lastReadoutStr) {
+    readoutEl.textContent = newReadoutStr;
+    lastReadoutStr = newReadoutStr;
+  }
+
+  var newTimeStr = formatClockTime(now);
+  if (newTimeStr !== lastTimeStr) {
+    elTime.textContent = newTimeStr;
+    lastTimeStr = newTimeStr;
+  }
+
+  // BrightSign: self-scheduling setTimeout, never setInterval (throttled at idle)
+  setTimeout(tickClock, 1000);
+}
+tickClock();
+
+/* =====================================================================
+   5-DAY FORECAST — Open-Meteo (no API key required)
+   ===================================================================== */
+var WMO_ICON = {
+  0:'☀️',1:'🌤️',2:'⛅',3:'☁️',
+  45:'🌫️',48:'🌫️',
+  51:'🌦️',53:'🌦️',55:'🌦️',56:'🌧️',57:'🌧️',
+  61:'🌧️',63:'🌧️',65:'🌧️',66:'🌧️',67:'🌧️',
+  71:'🌨️',73:'🌨️',75:'❄️',77:'❄️',
+  80:'🌦️',81:'🌧️',82:'⛈️',
+  85:'🌨️',86:'❄️',
+  95:'⛈️',96:'⛈️',99:'⛈️'
+};
+
+var WEEKDAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+var forecastRowEl = document.getElementById('forecastRow');
+var connDotEl = document.getElementById('connDot');
+
+function buildForecastURL() {
+  return "https://api.open-meteo.com/v1/forecast" +
+    "?latitude=" + WEATHER_LAT +
+    "&longitude=" + WEATHER_LON +
+    "&daily=weathercode,temperature_2m_max,temperature_2m_min" +
+    "&temperature_unit=fahrenheit" +
+    "&timezone=" + encodeURIComponent(WEATHER_TZ) +
+    "&forecast_days=5";
+}
+
+function renderForecast(data) {
+  var days = data.daily.time;
+  var hi = data.daily.temperature_2m_max;
+  var lo = data.daily.temperature_2m_min;
+  var codes = data.daily.weathercode;
+
+  var frag = document.createDocumentFragment();
+  for (var i = 0; i < days.length; i++) {
+    var d = new Date(days[i] + "T12:00:00");
+    var label = i === 0 ? 'Today' : WEEKDAYS[d.getDay()].slice(0,3).toUpperCase();
+    var icon = WMO_ICON[codes[i]] || '🌡️';
+
+    var card = document.createElement('div');
+    card.className = 'fday';
+    card.innerHTML =
+      '<div class="fname">' + label + '</div>' +
+      '<div class="ficon">' + icon + '</div>' +
+      '<div class="ftemps"><div class="fhi">' + Math.round(hi[i]) + '°</div>' +
+      '<div class="flo">' + Math.round(lo[i]) + '°</div></div>';
+    frag.appendChild(card);
+  }
+  forecastRowEl.innerHTML = '';
+  forecastRowEl.appendChild(frag);
+}
+
+function fetchForecast() {
+  var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  var timeoutId = controller ? setTimeout(function(){ controller.abort(); }, 15000) : 0;
+  var options = controller ? {signal: controller.signal, cache:'no-store'} : {cache:'no-store'};
+
+  fetch(buildForecastURL(), options)
+    .then(function(res){ if (!res.ok) throw new Error('weather http ' + res.status); return res.json(); })
+    .then(function(data){
+      if (!data || !data.daily) throw new Error('weather response missing daily data');
+      renderForecast(data);
+      connDotEl.classList.remove('stale');
+    })
+    .catch(function(err){
+      console.error('Forecast fetch failed:', err);
+      connDotEl.classList.add('stale');
+    })
+    .finally(function(){
+      if (timeoutId) clearTimeout(timeoutId);
+      // self-scheduling — BrightSign throttles setInterval at idle
+      setTimeout(fetchForecast, WEATHER_REFRESH_MS);
+    });
+}
+fetchForecast();
+
+/* =====================================================================
+   SMART DAILY RELOAD (3 AM) — clears memory leaks over long unattended
+   runtimes. Schedules a single setTimeout for the exact next occurrence
+   rather than polling every minute, so a throttled/delayed tick can't
+   cause it to skip past the target minute and miss a day's reload.
+   ===================================================================== */
+function scheduleReloadCheck() {
+  var now = new Date();
+  var next = new Date(now);
+  next.setHours(RELOAD_HOUR, 0, 0, 0);
+  if (next <= now) next.setDate(next.getDate() + 1);
+
+  setTimeout(function(){
+    location.reload();
+  }, Math.max(1000, next.getTime() - now.getTime()));
+}
+scheduleReloadCheck();
+</script>
+</body>
+</html>
